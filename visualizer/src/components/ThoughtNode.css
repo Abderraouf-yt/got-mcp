@@ -1,0 +1,174 @@
+/* ThoughtNode - Glassmorphism Card with Status-based Styling */
+
+.thought-node {
+    position: relative;
+    min-width: 280px;
+    max-width: 320px;
+    animation: nodeAppear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Glow effect behind card */
+.thought-node-glow {
+    position: absolute;
+    inset: -2px;
+    border-radius: 18px;
+    background: var(--status-glow);
+    opacity: 0.6;
+    filter: blur(20px);
+    z-index: -1;
+    transition: opacity 0.3s ease;
+}
+
+.thought-node:hover .thought-node-glow {
+    opacity: 1;
+}
+
+/* Status-specific glow animation for active nodes */
+.thought-node[data-status="active"] .thought-node-glow {
+    animation: pulseGlow 3s ease-in-out infinite;
+    --glow-color: var(--glow-active);
+}
+
+/* Main card */
+.thought-node-card {
+    background: var(--bg-glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-default);
+    border-radius: 16px;
+    padding: 16px;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.thought-node:hover .thought-node-card {
+    border-color: var(--status-color);
+    transform: translateY(-2px);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.5),
+        0 0 0 1px var(--status-color),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Header */
+.thought-node-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.thought-node-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--status-color), transparent);
+    border-radius: 10px;
+    color: var(--text-primary);
+    box-shadow: 0 2px 8px var(--status-glow);
+}
+
+.thought-node-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.thought-node-status-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--status-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Content */
+.thought-node-content {
+    margin-bottom: 14px;
+}
+
+.thought-node-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-primary);
+    font-weight: 400;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Footer */
+.thought-node-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.thought-node-score {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.thought-node-score-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.thought-node-score-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--status-color), var(--color-active));
+    border-radius: 3px;
+    transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 0 8px var(--status-glow);
+}
+
+.thought-node-score-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--status-color);
+    min-width: 36px;
+    text-align: right;
+}
+
+/* Handles */
+.thought-node-handle {
+    width: 12px !important;
+    height: 12px !important;
+    background: var(--bg-elevated) !important;
+    border: 2px solid var(--status-color) !important;
+    transition: all 0.2s ease !important;
+}
+
+.thought-node-handle:hover {
+    transform: scale(1.3);
+    box-shadow: 0 0 12px var(--status-glow);
+}
+
+/* Connected state */
+.thought-node-handle.connectingto,
+.thought-node-handle.connectingfrom {
+    background: var(--status-color) !important;
+}
