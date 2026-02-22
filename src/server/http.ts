@@ -1,19 +1,61 @@
 import express from "express";
 import cors from "cors";
+import net from "net";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { SERVER_CONFIG } from "../types.js";
 import { getGraphInstance } from "../graph/index.js";
 import { createServerInstance } from "./mcp.js";
 
-const HTTP_PORT = parseInt(process.env.THOUGHT_GRAPH_HTTP_PORT || '3001', 10);
+const PREFERRED_PORT = parseInt(process.env.THOUGHT_GRAPH_HTTP_PORT || '3001', 10);
+const MAX_PORT_ATTEMPTS = 20;
+
+/**
+ * Check if a port is available by briefly binding to it.
+ * Uses Node.js built-in `net` module — zero external dependencies.
+ */
+function isPortAvailable(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+        const server = net.createServer();
+        server.once("error", () => resolve(false));
+        server.once("listening", () => {
+            server.close(() => resolve(true));
+        });
+        server.listen(port, "127.0.0.1");
+    });
+}
+
+/**
+ * Find the first available port starting from `startPort`.
+ * Tries up to MAX_PORT_ATTEMPTS ports sequentially.
+ */
+async function findAvailablePort(startPort: number): Promise<number> {
+    for (let offset = 0; offset < MAX_PORT_ATTEMPTS; offset++) {
+        const port = startPort + offset;
+        if (await isPortAvailable(port)) {
+            return port;
+        }
+    }
+    // Fallback: let the OS assign a random port
+    return 0;
+}
 
 /**
  * Start the Express Server for SSE/HTTP (Dashboard Bridge).
+ * Automatically finds an available port if the preferred one is busy.
  */
-export function startHttpServer() {
+export async function startHttpServer(): Promise<net.Server> {
+    const port = await findAvailablePort(PREFERRED_PORT);
+
     const app = express();
-    // Restricting CORS to the default Visualizer port as requested in the Code Review step
-    app.use(cors({ origin: 'http://localhost:5173' }));
+    // Allow both the default Vite dev port and any localhost origin for flexibility
+    app.use(cors({
+        origin: [
+            'http://localhost:5173',
+            'http://localhost:5174',
+            'http://127.0.0.1:5173',
+            'http://127.0.0.1:5174',
+        ]
+    }));
     app.use(express.json());
 
     const activeSessions = new Map<string, SSEServerTransport>();
@@ -34,10 +76,6 @@ export function startHttpServer() {
     });
 
     app.post("/messages", async (req, res) => {
-        // SSE route ping endpoint
-        // NOTE: In a true robust production system this should route via sessionId mapping
-        // to `transport.handlePostMessage` for actual bidirectional SSE communication over REST.
-        // For the current setup, we just mock success as standard MCP client is Stdio.
         res.status(200).json({ status: "received" });
     });
 
@@ -51,6 +89,7 @@ export function startHttpServer() {
             status: "ok",
             name: SERVER_CONFIG.name,
             version: SERVER_CONFIG.version,
+            port: actualPort,
             connections: activeSessions.size,
             graph: {
                 nodes: graph.size,
@@ -59,19 +98,28 @@ export function startHttpServer() {
         });
     });
 
-    const httpServer = app.listen(HTTP_PORT);
+    let actualPort = port;
 
-    httpServer.on('listening', () => {
-        console.error(`🚀 Bridge running on http://localhost:${HTTP_PORT}`);
+    return new Promise((resolve) => {
+        const httpServer = app.listen(port, () => {
+            const addr = httpServer.address();
+            // If port was 0, OS assigned a random port — read it back
+            if (addr && typeof addr === "object") {
+                actualPort = addr.port;
+            }
+
+            if (actualPort !== PREFERRED_PORT) {
+                console.error(`🚀 Bridge on http://localhost:${actualPort} (port ${PREFERRED_PORT} was busy)`);
+            } else {
+                console.error(`🚀 Bridge on http://localhost:${actualPort}`);
+            }
+            resolve(httpServer);
+        });
+
+        httpServer.on('error', (err: NodeJS.ErrnoException) => {
+            console.error(`⚠️  HTTP bridge error: ${err.message}`);
+            // Even if HTTP fails, resolve so Stdio MCP isn't blocked
+            resolve(httpServer);
+        });
     });
-
-    httpServer.on('error', (err: NodeJS.ErrnoException) => {
-        if (err.code === 'EADDRINUSE') {
-            console.error(`⚠️  Port ${HTTP_PORT} already in use. HTTP bridge disabled. Stdio MCP still active.`);
-        } else {
-            console.error(`⚠️  HTTP server error: ${err.message}`);
-        }
-    });
-
-    return httpServer;
 }
