@@ -52,19 +52,29 @@ Graph of Thoughts: A → B₁ ←contradiction→ C₁, B₂ →aggregate→ D  
 
 ## ⚡ Quick Start
 
+### Option 1: Install from npm
+
 ```bash
-git clone https://github.com/YOUR_USERNAME/thought-graph.git
-cd thought-graph
+npm install -g got-mcp
+```
+
+### Option 2: Clone & Build
+
+```bash
+git clone https://github.com/Abderraouf-yt/got-mcp.git
+cd got-mcp
 npm install && npm run build
 ```
+
+### Configure your IDE
 
 Add to your MCP config (`~/.gemini/settings.json`, VS Code `mcp.json`, etc.):
 
 ```json
 {
   "got-mcp": {
-    "command": "node",
-    "args": ["<path-to>/thought-graph/dist/index.js"],
+    "command": "npx",
+    "args": ["-y", "got-mcp"],
     "env": { "THOUGHT_GRAPH_HTTP_PORT": "3001" }
   }
 }
