@@ -3,4 +3,10 @@
  * @module graph
  */
 
-export { ThoughtGraph, getGraphInstance, resetGraphInstance } from "./ThoughtGraph.js";
+export {
+    ThoughtGraph,
+    getGraphInstance,
+    getSessionIds,
+    destroySession,
+    resetGraphInstance,
+} from "./ThoughtGraph.js";

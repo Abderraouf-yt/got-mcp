@@ -17,3 +17,29 @@ Thumbs.db
 
 # Build
 *.tsbuildinfo
+
+# Runtime state (session-scoped graph persistence)
+thought-graph-state*.json
+
+# AI tooling internals — not for public repos
+.spec/
+.specify/
+.gemini/
+.agent/
+.agents/
+.roo/
+skills-lock.json
+MCP_CONFIG_README.md
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Test artifacts
+compile_errors.txt
+err.txt
+test-client.js
+visualizer/err.txt
+
+# Scans
+project-deep-scan/

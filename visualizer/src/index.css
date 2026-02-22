@@ -1,40 +1,38 @@
-/* Thought Graph Visualizer - Premium Dark Theme */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Core palette */
-  --bg-primary: #050508;
-  --bg-secondary: #0a0a0f;
-  --bg-elevated: #12121a;
-  --bg-glass: rgba(20, 20, 30, 0.7);
+  /* Core Cyber-Industrial Palette */
+  --bg-primary: #020203;
+  --bg-secondary: #08080a;
+  --bg-elevated: #0f1015;
+  --bg-glass: rgba(10, 10, 12, 0.85);
   
   /* Borders */
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-default: rgba(255, 255, 255, 0.1);
-  --border-focus: rgba(255, 255, 255, 0.2);
+  --border-subtle: #1a1a24;
+  --border-default: #2a2a3a;
+  --border-focus: #00f0ff;
   
   /* Text */
-  --text-primary: #f0f0f5;
-  --text-secondary: #8888a0;
-  --text-muted: #55556a;
+  --text-primary: #e0e0e0;
+  --text-secondary: #9aa0a6;
+  --text-muted: #4a4e69;
   
-  /* Status colors */
-  --color-active: #22d3ee;      /* Cyan */
-  --color-validated: #10b981;   /* Emerald */
-  --color-rejected: #f43f5e;    /* Rose */
-  --color-branching: #a78bfa;   /* Violet */
+  /* Status Colors - NEON */
+  --color-active: #00f0ff;      /* Cyan */
+  --color-validated: #39ff14;   /* Neon Green */
+  --color-rejected: #ff003c;    /* Cyber Red */
+  --color-branching: #f100ff;   /* Magenta */
   
   /* Glows */
-  --glow-active: rgba(34, 211, 238, 0.4);
-  --glow-validated: rgba(16, 185, 129, 0.4);
-  --glow-rejected: rgba(244, 63, 94, 0.4);
-  --glow-branching: rgba(167, 139, 250, 0.4);
+  --glow-active: rgba(0, 240, 255, 0.5);
+  --glow-validated: rgba(57, 255, 20, 0.5);
+  --glow-rejected: rgba(255, 0, 60, 0.5);
+  --glow-branching: rgba(241, 0, 255, 0.5);
   
-  /* Edge colors */
-  --edge-refinement: #6366f1;
-  --edge-support: #10b981;
-  --edge-contradiction: #f43f5e;
-  --edge-branch: #a78bfa;
+  /* Fonts */
+  --font-brand: 'Orbitron', sans-serif;
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-body: 'Rajdhani', sans-serif;
 }
 
 * {
@@ -47,25 +45,24 @@ html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-body);
   background: var(--bg-primary);
   color: var(--text-primary);
 }
 
-/* Background mesh gradient */
-body::before {
-  content: '';
-  position: fixed;
+/* CRT Scanlines Overlay */
+body::after {
+  content: "";
+  position: absolute;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: 
-    radial-gradient(ellipse at 20% 20%, rgba(34, 211, 238, 0.08), transparent 50%),
-    radial-gradient(ellipse at 80% 80%, rgba(167, 139, 250, 0.06), transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(99, 102, 241, 0.04), transparent 70%);
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  background-size: 100% 4px, 6px 100%;
   pointer-events: none;
-  z-index: 0;
+  z-index: 500;
+  opacity: 0.15;
 }
 
 /* React Flow customizations */
@@ -78,114 +75,52 @@ body::before {
 }
 
 .react-flow__background pattern {
-  stroke: rgba(255, 255, 255, 0.03) !important;
+  stroke: rgba(0, 240, 255, 0.05) !important;
 }
 
 .react-flow__controls {
-  background: var(--bg-glass) !important;
-  border: 1px solid var(--border-default) !important;
-  border-radius: 12px !important;
-  backdrop-filter: blur(20px) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
-  overflow: hidden;
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--color-active) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
 }
 
 .react-flow__controls-button {
   background: transparent !important;
   border: none !important;
   border-bottom: 1px solid var(--border-subtle) !important;
-  color: var(--text-secondary) !important;
+  color: var(--color-active) !important;
   transition: all 0.2s ease !important;
 }
 
 .react-flow__controls-button:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
-  color: var(--text-primary) !important;
-}
-
-.react-flow__controls-button:last-child {
-  border-bottom: none !important;
-}
-
-.react-flow__controls-button svg {
-  fill: currentColor !important;
+  background: rgba(0, 240, 255, 0.1) !important;
+  color: #fff !important;
 }
 
 .react-flow__minimap {
-  background: var(--bg-glass) !important;
-  border: 1px solid var(--border-default) !important;
-  border-radius: 12px !important;
-  backdrop-filter: blur(20px) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
-  overflow: hidden;
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--color-branching) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 0 15px rgba(241, 0, 255, 0.1);
 }
 
 /* Custom edges */
 .react-flow__edge-path {
   stroke-width: 2 !important;
-}
-
-/* Animations */
-@keyframes nodeAppear {
-  0% {
-    opacity: 0;
-    transform: scale(0.8) translateY(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-@keyframes pulseGlow {
-  0%, 100% {
-    box-shadow: 0 0 20px var(--glow-color, var(--glow-active));
-  }
-  50% {
-    box-shadow: 0 0 40px var(--glow-color, var(--glow-active)), 0 0 60px var(--glow-color, var(--glow-active));
-  }
-}
-
-@keyframes edgeFlow {
-  0% {
-    stroke-dashoffset: 24;
-  }
-  100% {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  filter: drop-shadow(0 0 3px currentColor);
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
-
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--bg-primary);
 }
-
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--color-active);
+  border-radius: 0px;
 }

@@ -14,7 +14,7 @@ export type ThoughtStatus = "active" | "validated" | "rejected" | "branching";
 /**
  * Type of relationship between thought nodes.
  */
-export type ThoughtRelation = "refinement" | "contradiction" | "support" | "branch";
+export type ThoughtRelation = "refinement" | "contradiction" | "support" | "branch" | "aggregation";
 
 /**
  * A node in the thought graph representing a single unit of reasoning.
@@ -53,17 +53,72 @@ export interface GraphState {
 }
 
 /**
+ * Configurable limits for graph explosion protection.
+ * Enforced at the engine level, not the tool layer.
+ */
+export interface GraphLimits {
+    maxNodes: number;
+    maxBranchFactor: number;
+    maxDepth: number;
+    maxThoughtLength: number;
+    maxAggregationInputs: number;
+    maxPruneCascade: number;
+}
+
+/**
+ * Default governance limits per v3.0 Production Constitution.
+ */
+export const DEFAULT_GRAPH_LIMITS: GraphLimits = {
+    maxNodes: 200,
+    maxBranchFactor: 5,
+    maxDepth: 15,
+    maxThoughtLength: 5000,
+    maxAggregationInputs: 10,
+    maxPruneCascade: 50,
+} as const;
+
+/**
+ * Session-scoped context for budget tracking and governance.
+ */
+export interface SessionContext {
+    sessionId: string;
+    limits: GraphLimits;
+    usage: {
+        nodesCreated: number;
+        edgesCreated: number;
+        pruneEvents: number;
+        aggregations: number;
+        startTime: number;
+    };
+}
+
+/**
+ * Structured metrics for observability.
+ */
+export interface GraphMetrics {
+    nodeCount: number;
+    edgeCount: number;
+    maxDepth: number;
+    avgScore: number;
+    pruneRatio: number;
+    rejectedCount: number;
+    activeCount: number;
+    validatedCount: number;
+    rootCount: number;
+}
+
+/**
  * Server configuration constants.
  */
 export const SERVER_CONFIG = {
-    name: "thought-graph",
-    version: "1.3.0",
-    description: "Graph of Thoughts (GoT) MCP Server for non-linear reasoning",
+    name: "got-mcp",
+    version: "3.0.0",
+    description: "Graph of Thoughts (GoT) MCP Server — bounded, auditable reasoning",
 } as const;
 
 /**
  * Resource URIs used by the server.
  */
 export const RESOURCE_URIS = {
-    currentGraph: "thought-graph://current",
+    currentGraph: "got-mcp://current",
 } as const;

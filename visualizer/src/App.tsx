@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useMemo, useCallback, useRef } from 'react';
+import useSWR from 'swr';
+import dagre from 'dagre';
 import {
   ReactFlow,
   Background,
@@ -6,14 +8,16 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
-  Node,
-  Edge,
+  useReactFlow,
+  ReactFlowProvider,
+  type Node,
+  type Edge,
   MarkerType,
   BackgroundVariant,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import ThoughtNode from './components/ThoughtNode';
-import { Network, Zap, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { Network, Zap, Wifi, WifiOff } from 'lucide-react';
 import './App.css';
 
 // Bridge API endpoint
@@ -38,107 +42,177 @@ interface GraphData {
   edges: ThoughtEdge[];
 }
 
-// Edge styling per relation type
-const edgeStyles = {
+// Vercel Best Practice: `rendering-hoist-jsx` — Hoist static constants outside the component
+const NODE_WIDTH = 300;
+const NODE_HEIGHT = 200;
+
+// Edge styling per relation type — hoisted for stable reference
+const edgeStyles: Record<string, { stroke: string; strokeWidth: number; animated?: boolean; strokeDasharray?: string }> = {
   refinement: { stroke: '#6366f1', strokeWidth: 2, animated: true },
   support: { stroke: '#10b981', strokeWidth: 2, animated: false },
-  contradiction: { stroke: '#f43f5e', strokeWidth: 2, strokeDasharray: '5 5', animated: false },
+  contradiction: { stroke: '#f43f5e', strokeWidth: 2, strokeDasharray: '8 4', animated: false },
   branch: { stroke: '#a78bfa', strokeWidth: 2, animated: true },
 };
 
-// Auto-layout: simple grid with staggering
-function layoutNodes(nodes: ThoughtNodeData[]): Node[] {
-  const HORIZONTAL_SPACING = 380;
-  const VERTICAL_SPACING = 220;
-  const COLS = 3;
+/**
+ * Dagre-based hierarchical layout engine.
+ * Produces a clean top-to-bottom DAG layout that respects parent→child edge flow.
+ */
+function getLayoutedElements(
+  nodes: ThoughtNodeData[],
+  edges: ThoughtEdge[],
+  direction: 'TB' | 'LR' = 'TB'
+): { nodes: Node[]; edges: Edge[] } {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  dagreGraph.setGraph({
+    rankdir: direction,
+    nodesep: 80,      // horizontal spacing between nodes
+    ranksep: 120,     // vertical spacing between ranks (levels)
+    edgesep: 40,      // spacing between edges
+    marginx: 40,
+    marginy: 40,
+  });
 
-  return nodes.map((node, index) => ({
-    id: node.id,
-    type: 'thoughtNode',
-    position: {
-      x: (index % COLS) * HORIZONTAL_SPACING + Math.random() * 40 - 20,
-      y: Math.floor(index / COLS) * VERTICAL_SPACING + Math.random() * 30 - 15,
-    },
-    data: {
-      thought: node.thought,
-      status: node.status,
-      score: node.score,
-      metadata: node.metadata,
-    },
-  }));
+  // Register nodes with dagre
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  });
+
+  // Register edges with dagre so it knows the graph structure
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.from, edge.to);
+  });
+
+  // Run the layout algorithm
+  dagre.layout(dagreGraph);
+
+  // Map dagre output back to React Flow nodes
+  const layoutedNodes: Node[] = nodes.map((node) => {
+    const dagreNode = dagreGraph.node(node.id);
+    return {
+      id: node.id,
+      type: 'thoughtNode',
+      position: {
+        // dagre gives center coords; offset to top-left for React Flow
+        x: dagreNode.x - NODE_WIDTH / 2,
+        y: dagreNode.y - NODE_HEIGHT / 2,
+      },
+      data: {
+        thought: node.thought,
+        status: node.status,
+        score: node.score,
+        metadata: node.metadata,
+      },
+    };
+  });
+
+  // Convert edges with enhanced visual styling
+  const layoutedEdges: Edge[] = edges.map((edge, index) => {
+    const style = edgeStyles[edge.relation] || edgeStyles.refinement;
+    return {
+      id: `e-${edge.from}-${edge.to}-${index}`,
+      source: edge.from,
+      target: edge.to,
+      type: 'smoothstep',
+      animated: style.animated,
+      style: {
+        stroke: style.stroke,
+        strokeWidth: style.strokeWidth,
+        strokeDasharray: style.strokeDasharray,
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: style.stroke,
+        width: 18,
+        height: 18,
+      },
+      label: edge.relation.toUpperCase(),
+      labelStyle: {
+        fontSize: 9,
+        fontWeight: 700,
+        fill: style.stroke,
+        fontFamily: 'var(--font-mono)',
+        letterSpacing: '1.5px',
+      },
+      labelBgStyle: {
+        fill: 'rgba(5, 5, 8, 0.95)',
+        fillOpacity: 0.95,
+      },
+      labelBgPadding: [8, 5] as [number, number],
+      labelBgBorderRadius: 2,
+    };
+  });
+
+  return { nodes: layoutedNodes, edges: layoutedEdges };
 }
 
-function convertEdges(edges: ThoughtEdge[]): Edge[] {
-  return edges.map((edge, index) => ({
-    id: `e-${edge.from}-${edge.to}-${index}`,
-    source: edge.from,
-    target: edge.to,
-    type: 'smoothstep',
-    style: edgeStyles[edge.relation] || edgeStyles.refinement,
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      color: edgeStyles[edge.relation]?.stroke || '#6366f1',
-    },
-    label: edge.relation,
-    labelStyle: {
-      fontSize: 10,
-      fontWeight: 600,
-      fill: edgeStyles[edge.relation]?.stroke || '#6366f1',
-      textTransform: 'uppercase' as const,
-    },
-    labelBgStyle: {
-      fill: 'rgba(10, 10, 15, 0.9)',
-      fillOpacity: 0.9,
-    },
-    labelBgPadding: [6, 4] as [number, number],
-    labelBgBorderRadius: 4,
-  }));
-}
+// Vercel Best Practice: `client-swr-dedup` — SWR fetcher hoisted outside component
+const fetcher = (url: string) => fetch(url).then((res) => {
+  if (!res.ok) throw new Error('Failed to fetch');
+  return res.json();
+});
 
+// Vercel Best Practice: `rendering-hoist-jsx` — hoisted nodeTypes
 const nodeTypes = { thoughtNode: ThoughtNode };
 
-function App() {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [connected, setConnected] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [nodeCount, setNodeCount] = useState(0);
+// Vercel Best Practice: `rerender-memo-with-default-value` — hoisted default fitView options
+const fitViewOptions = { padding: 0.4, duration: 600 };
 
-  // Fetch graph data
-  const fetchGraph = useCallback(async () => {
-    try {
-      const response = await fetch(`${BRIDGE_URL}/api/graph`);
-      if (!response.ok) throw new Error('Failed to fetch');
+function GraphCanvas() {
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const { fitView } = useReactFlow();
+  const prevNodeCountRef = useRef(0);
 
-      const data: GraphData = await response.json();
+  // Vercel Best Practice: `client-swr-dedup` — automatic request deduplication and caching
+  const { data, error, isLoading } = useSWR<GraphData>(`${BRIDGE_URL}/api/graph`, fetcher, {
+    refreshInterval: 2000,
+    revalidateOnFocus: false,
+    dedupingInterval: 2000,
+  });
 
-      setNodes(layoutNodes(data.nodes));
-      setEdges(convertEdges(data.edges));
-      setNodeCount(data.nodes.length);
-      setConnected(true);
-      setLastUpdate(new Date());
-    } catch (error) {
-      console.error('Bridge connection error:', error);
-      setConnected(false);
-    }
+  const connected = !error && data !== undefined;
+  const nodeCount = data?.nodes?.length || 0;
+
+  // Vercel Best Practice: `rerender-functional-setstate` — stable callback using useCallback
+  const applyLayout = useCallback((graphData: GraphData) => {
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      graphData.nodes,
+      graphData.edges,
+      'TB'
+    );
+    setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
   }, [setNodes, setEdges]);
 
-  // Poll for updates
   useEffect(() => {
-    fetchGraph();
-    const interval = setInterval(fetchGraph, 2000);
-    return () => clearInterval(interval);
-  }, [fetchGraph]);
+    if (data && data.nodes.length > 0) {
+      applyLayout(data);
 
-  // Node status counts
+      // Only re-fit the view when node count changes (new nodes added/removed)
+      if (data.nodes.length !== prevNodeCountRef.current) {
+        prevNodeCountRef.current = data.nodes.length;
+        // Small delay to let React Flow render the new nodes before fitting
+        setTimeout(() => fitView(fitViewOptions), 100);
+      }
+    } else if (data && data.nodes.length === 0) {
+      setNodes([]);
+      setEdges([]);
+      prevNodeCountRef.current = 0;
+    }
+  }, [data, applyLayout, fitView, setNodes, setEdges]);
+
+  // Vercel Best Practice: `rerender-memo` — memoize derived state computation
   const statusCounts = useMemo(() => {
     const counts = { active: 0, validated: 0, rejected: 0, branching: 0 };
-    nodes.forEach((node) => {
-      const status = (node.data as { status: keyof typeof counts }).status;
-      if (status in counts) counts[status]++;
-    });
+    if (!data?.nodes) return counts;
+    // Vercel Best Practice: `js-combine-iterations` — single pass through array
+    for (const node of data.nodes) {
+      if (node.status in counts) counts[node.status as keyof typeof counts]++;
+    }
     return counts;
-  }, [nodes]);
+  }, [data?.nodes]);
 
   return (
     <div className="app-container">
@@ -174,9 +248,6 @@ function App() {
         </div>
 
         <div className="header-actions">
-          <button className="action-btn" onClick={fetchGraph} title="Refresh">
-            <RefreshCw size={16} />
-          </button>
           <div className={`connection-status ${connected ? 'connected' : 'disconnected'}`}>
             {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
             <span>{connected ? 'Live' : 'Offline'}</span>
@@ -203,10 +274,14 @@ function App() {
             onEdgesChange={onEdgesChange}
             nodeTypes={nodeTypes}
             fitView
-            fitViewOptions={{ padding: 0.3 }}
-            minZoom={0.3}
-            maxZoom={2}
+            fitViewOptions={fitViewOptions}
+            minZoom={0.2}
+            maxZoom={2.5}
             proOptions={{ hideAttribution: true }}
+            defaultEdgeOptions={{
+              type: 'smoothstep',
+              style: { strokeWidth: 2 },
+            }}
           >
             <Background
               variant={BackgroundVariant.Dots}
@@ -227,6 +302,7 @@ function App() {
                 return colors[status] || '#6366f1';
               }}
               maskColor="rgba(0, 0, 0, 0.8)"
+              style={{ borderRadius: 0, border: '1px solid var(--border-default)' }}
             />
           </ReactFlow>
         )}
@@ -248,14 +324,24 @@ function App() {
           </span>
         </div>
         <div className="footer-right">
-          {lastUpdate && (
-            <span className="last-update">
-              Updated: {lastUpdate.toLocaleTimeString()}
-            </span>
-          )}
+          <span className="last-update">
+            {isLoading ? 'Syncing...' : connected ? 'Live Sync Active' : 'Disconnected'}
+          </span>
         </div>
       </footer>
     </div>
+  );
+}
+
+/**
+ * App wrapper — ReactFlowProvider is required for useReactFlow() hook
+ * Vercel Best Practice: `advanced-init-once` — Provider initialized once at app root
+ */
+function App() {
+  return (
+    <ReactFlowProvider>
+      <GraphCanvas />
+    </ReactFlowProvider>
   );
 }
 

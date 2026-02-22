@@ -1,0 +1,226 @@
+{
+  "nodes": [
+    {
+      "id": "node_1",
+      "thought": "We need to design a real-time collaborative document editor. The core question: should we use CRDTs or Operational Transformation (OT) for conflict resolution?",
+      "status": "validated",
+      "score": 0.8,
+      "createdAt": "2026-02-22T02:26:00.459Z",
+      "updatedAt": "2026-02-22T02:27:06.115Z",
+      "metadata": {
+        "critique": "Root question — well-framed architectural decision."
+      }
+    },
+    {
+      "id": "node_2",
+      "thought": "CRDTs (Conflict-free Replicated Data Types) guarantee eventual consistency without a central server. They work offline-first and merge automatically. Libraries like Yjs and Automerge are mature.",
+      "status": "validated",
+      "score": 0.85,
+      "createdAt": "2026-02-22T02:26:12.146Z",
+      "updatedAt": "2026-02-22T02:27:07.187Z",
+      "metadata": {
+        "critique": "Accurate summary of CRDT properties."
+      }
+    },
+    {
+      "id": "node_3",
+      "thought": "Operational Transformation requires a central server to coordinate transforms. Google Docs uses OT. It is battle-tested but creates a single point of failure.",
+      "status": "active",
+      "score": 0.7,
+      "createdAt": "2026-02-22T02:26:12.179Z",
+      "updatedAt": "2026-02-22T02:27:08.292Z",
+      "metadata": {
+        "critique": "Fair OT summary but understates its maturity."
+      }
+    },
+    {
+      "id": "node_4",
+      "thought": "Branch A: Go with CRDTs using Yjs. Benefits: offline-first, no central coordination, WebRTC peer-to-peer sync possible.",
+      "status": "validated",
+      "score": 0.9,
+      "createdAt": "2026-02-22T02:26:23.365Z",
+      "updatedAt": "2026-02-22T02:27:09.570Z",
+      "metadata": {
+        "critique": "Strong CRDT branch with actionable Yjs recommendation."
+      }
+    },
+    {
+      "id": "node_5",
+      "thought": "Branch B: Go with OT using ShareDB. Benefits: proven at Google scale, simpler mental model, mature ecosystem.",
+      "status": "rejected",
+      "score": 0.4,
+      "createdAt": "2026-02-22T02:26:24.785Z",
+      "updatedAt": "2026-02-22T02:27:10.725Z",
+      "metadata": {
+        "critique": "OT path rejected — single point of failure unacceptable for 2026."
+      }
+    },
+    {
+      "id": "node_6",
+      "thought": "Yjs has excellent TypeScript support, sub-100ms sync latency, and integrates natively with ProseMirror, Monaco, and CodeMirror editors.",
+      "status": "validated",
+      "score": 0.95,
+      "createdAt": "2026-02-22T02:26:26.806Z",
+      "updatedAt": "2026-02-22T02:27:12.006Z",
+      "metadata": {
+        "critique": "Concrete technical evidence supporting the CRDT choice."
+      }
+    },
+    {
+      "id": "node_7",
+      "thought": "However, CRDTs have higher memory overhead. A document with 10K edits can balloon the CRDT state to 10x the document size. This is a scalability concern.",
+      "status": "active",
+      "score": 0.65,
+      "createdAt": "2026-02-22T02:26:28.194Z",
+      "updatedAt": "2026-02-22T02:27:12.912Z",
+      "metadata": {
+        "critique": "Valid concern about CRDT memory, but solvable with compaction."
+      }
+    },
+    {
+      "id": "node_8",
+      "thought": "ShareDB uses MongoDB for persistence and handles real-time cursor positions out of the box. The server handles conflict resolution deterministically.",
+      "status": "rejected",
+      "score": 0.5,
+      "createdAt": "2026-02-22T02:26:29.902Z",
+      "updatedAt": "2026-02-22T02:27:14.064Z",
+      "metadata": {
+        "critique": "Good supporting point but doesn't overcome the offline limitation."
+      }
+    },
+    {
+      "id": "node_9",
+      "thought": "OT requires all operations to go through a central server, creating latency spikes under high load. It cannot work offline — edits are lost if the connection drops.",
+      "status": "validated",
+      "score": 0.9,
+      "createdAt": "2026-02-22T02:26:29.927Z",
+      "updatedAt": "2026-02-22T02:27:15.236Z",
+      "metadata": {
+        "critique": "Critical flaw in OT confirmed by real-world failure modes."
+      }
+    },
+    {
+      "id": "node_10",
+      "thought": "Yjs solves the memory issue with garbage collection via Y.Doc snapshots. Old operations can be compacted, reducing state size by 90% after compaction.",
+      "status": "validated",
+      "score": 0.92,
+      "createdAt": "2026-02-22T02:26:46.214Z",
+      "updatedAt": "2026-02-22T02:27:16.287Z",
+      "metadata": {
+        "critique": "Directly resolves the memory contradiction. Compaction is production-proven."
+      }
+    },
+    {
+      "id": "node_11",
+      "thought": "Branch C: Hybrid approach — use CRDTs for text editing (Yjs) with a lightweight central relay server (y-websocket) for presence and awareness features.",
+      "status": "validated",
+      "score": 0.95,
+      "createdAt": "2026-02-22T02:26:48.101Z",
+      "updatedAt": "2026-02-22T02:27:17.969Z",
+      "metadata": {
+        "critique": "Best of both worlds — this is the optimal architecture path."
+      }
+    },
+    {
+      "id": "node_12",
+      "thought": "The hybrid approach is used by Liveblocks, Tiptap Cloud, and Hocuspocus. It combines CRDT offline resilience with server-mediated presence, auth, and room management.",
+      "status": "validated",
+      "score": 0.88,
+      "createdAt": "2026-02-22T02:26:50.208Z",
+      "updatedAt": "2026-02-22T02:27:19.054Z",
+      "metadata": {
+        "critique": "Strong industry validation from Liveblocks, Tiptap, Hocuspocus."
+      }
+    },
+    {
+      "id": "node_13",
+      "thought": "Final recommendation: Use Yjs + y-websocket + Hocuspocus for the collaborative editor. This gives us CRDT conflict resolution, offline support, and centralized auth/rooms.",
+      "status": "validated",
+      "score": 1,
+      "createdAt": "2026-02-22T02:26:50.247Z",
+      "updatedAt": "2026-02-22T02:27:19.075Z",
+      "metadata": {
+        "critique": "Clear, actionable conclusion. The winning path through the reasoning graph."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "node_1",
+      "to": "node_2",
+      "relation": "refinement",
+      "createdAt": "2026-02-22T02:26:12.147Z"
+    },
+    {
+      "from": "node_1",
+      "to": "node_3",
+      "relation": "refinement",
+      "createdAt": "2026-02-22T02:26:12.179Z"
+    },
+    {
+      "from": "node_2",
+      "to": "node_4",
+      "relation": "branch",
+      "createdAt": "2026-02-22T02:26:23.365Z"
+    },
+    {
+      "from": "node_3",
+      "to": "node_5",
+      "relation": "branch",
+      "createdAt": "2026-02-22T02:26:24.786Z"
+    },
+    {
+      "from": "node_4",
+      "to": "node_6",
+      "relation": "support",
+      "createdAt": "2026-02-22T02:26:26.807Z"
+    },
+    {
+      "from": "node_4",
+      "to": "node_7",
+      "relation": "contradiction",
+      "createdAt": "2026-02-22T02:26:28.195Z"
+    },
+    {
+      "from": "node_5",
+      "to": "node_8",
+      "relation": "support",
+      "createdAt": "2026-02-22T02:26:29.903Z"
+    },
+    {
+      "from": "node_5",
+      "to": "node_9",
+      "relation": "contradiction",
+      "createdAt": "2026-02-22T02:26:29.931Z"
+    },
+    {
+      "from": "node_7",
+      "to": "node_10",
+      "relation": "refinement",
+      "createdAt": "2026-02-22T02:26:46.215Z"
+    },
+    {
+      "from": "node_1",
+      "to": "node_11",
+      "relation": "branch",
+      "createdAt": "2026-02-22T02:26:48.102Z"
+    },
+    {
+      "from": "node_11",
+      "to": "node_12",
+      "relation": "support",
+      "createdAt": "2026-02-22T02:26:50.209Z"
+    },
+    {
+      "from": "node_11",
+      "to": "node_13",
+      "relation": "refinement",
+      "createdAt": "2026-02-22T02:26:50.248Z"
+    }
+  ],
+  "meta": {
+    "nodeCount": 13,
+    "edgeCount": 12,
+    "lastModified": "2026-02-22T02:27:35.972Z"
+  }
+}

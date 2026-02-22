@@ -1,90 +1,347 @@
-# Thought Graph (GoT) MCP Server
+<p align="center">
+  <img src="docs/assets/hero-complex-graph.png" alt="Thought Graph — 13-node reasoning DAG visualized in cyber-industrial UI" width="100%" />
+</p>
 
-## 🚀 Overview
-**Thought Graph** is a high-performance Model Context Protocol (MCP) server designed for recursive, non-linear reasoning. It was custom-engineered in 2026 to supersede traditional linear "Chain of Thought" (CoT) and hierarchical "Tree of Thoughts" (ToT) frameworks.
+<h1 align="center">🧠 THOUGHT GRAPH</h1>
 
-By representing reasoning as a **Directed Acyclic Graph (DAG)** with support for cycles and transformations, this server allows AI agents to perform complex architectural planning, deep debugging, and multi-variable optimization.
+<p align="center">
+  <strong>Graph of Thoughts MCP Server — Bounded, Auditable Reasoning for AI Agents</strong>
+</p>
 
----
+<p align="center">
+  <a href="https://www.npmjs.com/package/thought-graph"><img src="https://img.shields.io/npm/v/thought-graph?style=flat-square&color=00e5ff&label=npm" alt="npm version" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/node-%3E%3D20-00e5ff?style=flat-square" alt="Node.js" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/MCP-1.26+-ff00ff?style=flat-square" alt="MCP SDK" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/tools-10-00ff88?style=flat-square" alt="Tools" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="License" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/GoT-Besta%20et%20al.%202023-ff6b6b?style=flat-square" alt="GoT Paper" /></a>
+</p>
 
-## 🧠 Why Graph of Thoughts (GoT)?
-Traditional reasoning tools (like `sequential-thinking`) are often restricted to linear paths. **Thought Graph** introduces three critical 2026-era logic patterns:
-1. **Aggregration**: Merging three separate sub-thoughts into one unified conclusion.
-2. **Backtracking & Refinement**: Revisiting a previous node to update it based on "future" discoveries.
-3. **Contradiction Management**: Specifically marking thoughts that negate others to prevent logical hallucinations.
-
----
-
-## 🛠 Tools Reference
-
-### `propose_thought`
-Creates a new node in the graph.
-- `thought`: The actual reasoning text.
-- `parentId`: (Optional) Connect to a specific previous thought.
-- `relation`: 
-  - `refinement`: Narrowing down a detail.
-  - `contradiction`: Proving a previous thought wrong.
-  - `support`: Adding evidence to a previous thought.
-  - `branch`: Exploring a parallel alternative.
-
-### `evaluate_thought`
-Triggers a self-critique loop or autonomous audit.
-- `nodeId`: The ID of the node to judge.
-- `score`: (Optional) 100% (1.0) means verified logic; 0% (0.0) means logical failure. **If omitted, triggers an autonomous LLM audit via MCP Sampling.**
-- `status`: `validated`, `rejected`, or `branching` (needs more exploration).
-- `critique`: Detailed reasoning for why this score was given.
-
-### `get_thought_graph`
-Exports the entire mental map as JSON for review or storage.
-
-### `reset_graph`
-Clears the current reasoning session, removing all nodes and edges from the graph. Useful for starting a fresh reasoning context.
+<p align="center">
+  <a href="#-quick-start">⚡ Quick Start</a> •
+  <a href="#-live-demo">🎬 Live Demo</a> •
+  <a href="#-tools-10">🛠 Tools</a> •
+  <a href="#-how-it-thinks">🧬 How It Thinks</a> •
+  <a href="#-governance">🔒 Governance</a> •
+  <a href="#-visualizer">📊 Visualizer</a>
+</p>
 
 ---
 
-## 📖 Case Study 1: Resolving a Distributed Systems Race Condition
-**Scenario**: A microservice is dropping 0.1% of orders under high load.
+## What is this?
 
-1. **Node 1 (Propose)**: "Observed drop rate correlates with peak hours. Hypothesize database locking."
-2. **Node 2 (Propose)**: "Check Redis lock expiration. Node 1 Parent."
-3. **Node 3 (Evaluate Node 2)**: "Score 0.2. Critique: Redis logs show no lock timeouts. Rejecting hypothesis."
-4. **Node 4 (Propose)**: "New branch from Node 1: Hypothesize network jitter in the VPC peering."
-5. **Node 5 (Support Node 4)**: "Confirmed VPC logs show 504 Gateway Timeouts during same window."
-6. **Final Node**: "Conclusion: Increase VPC peering throughput and implement jitter-based retries."
+> **Chain of Thought** reasons in a line. **Tree of Thought** can branch. **Graph of Thoughts** can branch, merge, contradict, prune dead ends, and converge on the winning path.
 
-## 📖 Case Study 2: Designing a Carbon-Neutral Data Center
-**Scenario**: Balance cooling efficiency with renewable energy uptime.
+Thought Graph is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that gives AI agents **non-linear reasoning** — a directed acyclic graph where thoughts can branch into alternatives, get contradicted by evidence, and converge through weighted aggregation.
 
-1. **Path A**: Focus on immersion cooling (High CAPEX, Low OPEX).
-2. **Path B**: Focus on solar + battery storage (High CAPEX, High Space).
-3. **Aggregation Node**: "Use Thought Graph to merge Path A and Path B. Results in a hybrid model using immersion cooling only during peak thermal hours to save battery life."
+```
+Traditional AI:    A → B → C → D          (linear, no backtracking)
+Tree of Thought:   A → B₁, B₂             (branching, no merging)  
+Graph of Thoughts: A → B₁ ←contradiction→ C₁, B₂ →aggregate→ D  ← THIS
+```
+
+<table>
+<tr>
+<td width="33%" align="center"><strong>🔗 Chain of Thought</strong><br/>Linear • No backtrack</td>
+<td width="33%" align="center"><strong>🌲 Tree of Thoughts</strong><br/>Branching • No merge</td>
+<td width="33%" align="center"><strong>🧠 Graph of Thoughts</strong><br/>Branch • Merge • Prune • Converge</td>
+</tr>
+</table>
 
 ---
 
-## 🏗 Technical Architecture
+## ⚡ Quick Start
 
-**Thought Graph** is built on a dual-transport architecture, allowing it to act as both a tool for an Agent and a data source for a Visualizer.
+```bash
+git clone https://github.com/YOUR_USERNAME/thought-graph.git
+cd thought-graph
+npm install && npm run build
+```
 
-### Dual-Transport System
-- **Stdio Transport**: Enables real-time reasoning loops within the AI Agent (e.g., Gemini, Claude).
-- **SSE/HTTP Bridge**: A built-in Express server that provides a Server-Sent Events (SSE) stream and a REST API (`/api/graph`). This allows external dashboards to visualize the reasoning graph in real-time without interrupting the Agent's session.
+Add to your MCP config (`~/.gemini/settings.json`, VS Code `mcp.json`, etc.):
 
-### The Graph Model
-The graph is managed as a singleton `ThoughtGraph` instance. It ensures that any node proposed by the Agent via Stdio is immediately reflected in the Visualization dashboard via SSE.
-
-```mermaid
-graph TD
-    A[AI Agent] <-->|Stdio| B(MCP Server)
-    B <--> C{Shared Graph State}
-    D[Visualizer Dashboard] <-->|SSE/REST| B
+```json
+{
+  "got-mcp": {
+    "command": "node",
+    "args": ["<path-to>/thought-graph/dist/index.js"],
+    "env": { "THOUGHT_GRAPH_HTTP_PORT": "3001" }
+  }
+}
 ```
 
 ---
 
-## 🛠 Installation & Modification
-This is a **bespoke** MCP server created specifically for this workspace. 
-- **Source**: `src/index.ts`
-- **Build**: `npm run build`
-- **Config**: Located in your `mcp_config.json`.
+## 🎬 Live Demo
 
-You can modify the `ThoughtGraph` class in `src/index.ts` to add features like "Recursive Search" or "Graph Pruning" at any time.
+**Problem:** *"Should we use CRDTs or Operational Transformation for a collaborative editor?"*
+
+The agent explored 3 branches, evaluated 13 nodes, rejected dead ends, and converged on a hybrid solution — all visible in the graph:
+
+```mermaid
+graph TD
+    classDef validated fill:#00ff88,stroke:#00ff88,color:#000
+    classDef rejected fill:#ff4444,stroke:#ff4444,color:#fff
+    classDef active fill:#00e5ff,stroke:#00e5ff,color:#000
+    classDef winner fill:#ffd700,stroke:#ffd700,color:#000
+
+    N1["🎯 CRDTs vs OT?<br/>80%"]:::validated
+
+    N2["📖 CRDT Research<br/>85%"]:::validated
+    N3["📖 OT Research<br/>70%"]:::active
+
+    N4["🌿 Branch A: Yjs<br/>90%"]:::validated
+    N5["❌ Branch B: ShareDB<br/>40%"]:::rejected
+    N11["🌿 Branch C: Hybrid<br/>95%"]:::validated
+
+    N6["✅ TypeScript + ProseMirror<br/>sub-100ms sync · 95%"]:::validated
+    N7["⚠️ Memory overhead<br/>10x state size · 65%"]:::active
+
+    N8["❌ MongoDB persistence<br/>50%"]:::rejected
+    N9["💀 Cannot work offline<br/>90%"]:::validated
+
+    N10["🔧 Y.Doc compaction<br/>90% size reduction · 92%"]:::validated
+    N12["✅ Liveblocks + Tiptap<br/>+ Hocuspocus · 88%"]:::validated
+    N13["🏆 WINNER: Yjs +<br/>y-websocket + Hocuspocus<br/>100%"]:::winner
+
+    N1 -->|refinement| N2
+    N1 -->|refinement| N3
+    N1 -->|branch| N11
+
+    N2 -->|branch| N4
+    N3 -->|branch| N5
+
+    N4 -->|support| N6
+    N4 -->|contradiction| N7
+
+    N5 -->|support| N8
+    N5 -->|contradiction| N9
+
+    N7 -->|refinement| N10
+
+    N11 -->|support| N12
+    N11 -->|refinement| N13
+```
+
+> **Result:** OT branch rejected (offline failure). CRDT memory concern contradicted then resolved via compaction. Hybrid path wins at 100%.
+
+<details>
+<summary>🔁 <strong>Load this demo yourself</strong></summary>
+
+```bash
+cp docs/assets/demo-state.json thought-graph-state.json
+npm run start
+# Open visualizer → http://localhost:5173
+```
+
+The demo state ships with the repo in `docs/assets/demo-state.json`.
+
+</details>
+
+---
+
+## 🛠 Tools (10)
+
+<table>
+<tr><th>Tool</th><th>What it does</th><th>Category</th></tr>
+<tr><td><code>propose_thought</code></td><td>Add a reasoning node with optional parent + relation</td><td>🧠 Core</td></tr>
+<tr><td><code>evaluate_thought</code></td><td>Score (0.0–1.0) + critique. Omit score → autonomous LLM audit</td><td>🧠 Core</td></tr>
+<tr><td><code>get_thought_graph</code></td><td>Retrieve the full DAG state</td><td>🧠 Core</td></tr>
+<tr><td><code>reset_graph</code></td><td>Clear graph for new session</td><td>🧠 Core</td></tr>
+<tr><td><code>aggregate_thoughts</code></td><td>Merge 2+ nodes → weighted synthesis <code>Σ(score×weight)/Σ(weights)</code></td><td>⚡ GoT</td></tr>
+<tr><td><code>prune_branch</code></td><td>Hard (reject+zero) or Soft (score decay) pruning</td><td>⚡ GoT</td></tr>
+<tr><td><code>find_winning_path</code></td><td>Greedy DFS or beam search (k-best paths) with threshold gating</td><td>⚡ GoT</td></tr>
+<tr><td><code>get_graph_metrics</code></td><td>Node count, max depth, prune ratio, avg score, status breakdown</td><td>📊 Ops</td></tr>
+<tr><td><code>export_snapshot</code></td><td>Full graph serialization for replay/recovery</td><td>🔁 Replay</td></tr>
+<tr><td><code>restore_snapshot</code></td><td>Restore from previously exported snapshot</td><td>🔁 Replay</td></tr>
+</table>
+
+### Edge Relations
+
+`refinement` · `contradiction` · `support` · `branch` · `aggregation`
+
+### Node Statuses
+
+`active` · `validated` · `rejected` · `branching`
+
+---
+
+## 🧬 How It Thinks
+
+```
+Agent: I need to decide between PostgreSQL and MongoDB.
+
+→ propose_thought("PostgreSQL vs MongoDB for user data store?")
+→ propose_thought("PostgreSQL: ACID, strong schema", parent: "node_1", relation: "branch")
+→ propose_thought("MongoDB: flexible schema, horizontal scaling", parent: "node_1", relation: "branch")
+→ propose_thought("Our data has relational patterns: user→orders→items", parent: "node_2", relation: "support")
+→ propose_thought("MongoDB can't enforce referential integrity", parent: "node_3", relation: "contradiction")
+→ evaluate_thought("node_3", score: 0.3, status: "rejected")
+→ prune_branch("node_3", reason: "Relational data needs relational DB")
+→ find_winning_path(beamWidth: 2, scoreThreshold: 0.5)
+  ↳ Winner: node_1 → node_2 → node_4 (PostgreSQL path, score: 2.75)
+```
+
+---
+
+## 🔒 Governance
+
+Engine-level guards — enforced in the graph engine, not the tool layer:
+
+| Guard | Default | Enforcement |
+|-------|---------|-------------|
+| **Node cap** | 200 | `addNode()` throws at limit |
+| **Depth cap** | 15 | `addEdge()` validates depth |
+| **Branch cap** | 5 children/node | `addEdge()` limits branching |
+| **Cycle detection** | Always on | BFS reachability in `addEdge()` |
+| **Thought length** | 5,000 chars | `addNode()` + Zod schema |
+| **Aggregation limit** | 10 inputs | `aggregateNodes()` |
+| **Prune cascade** | 50 nodes | `pruneFromNode()` |
+| **Confidence clamp** | [0, 1] | `aggregateNodes()` |
+
+<details>
+<summary>⚙️ <strong>Custom Limits</strong></summary>
+
+Override defaults via constructor:
+
+```typescript
+const graph = new ThoughtGraph(persistPath, {
+  maxNodes: 500,
+  maxDepth: 25,
+  maxBranchFactor: 8,
+  maxThoughtLength: 10000,
+  maxAggregationInputs: 20,
+  maxPruneCascade: 100,
+});
+```
+
+</details>
+
+### Session Isolation
+
+Each session gets its own isolated graph with separate persistence:
+
+```typescript
+const alice = getGraphInstance("user-alice");  // → thought-graph-state-user-alice.json
+const bob   = getGraphInstance("user-bob");    // → thought-graph-state-user-bob.json
+// Alice and Bob never share state
+```
+
+### Concurrency Safety
+
+All mutations run under an async mutex:
+
+```typescript
+await graph.withLock(async () => {
+  graph.addNode("Safe concurrent mutation");
+});
+```
+
+### Snapshot Replay
+
+```typescript
+const snapshot = graph.exportSnapshot();
+// { nodes, edges, nodeCounter, timestamp, version: "3.0.0", stateVersion: 42 }
+
+graph.restoreSnapshot(snapshot);  // Deterministic replay
+```
+
+---
+
+## 📊 Visualizer
+
+A React 19 + Vite dashboard with a **cyber-industrial UI** — real-time graph rendering via React Flow + Dagre layout.
+
+| Feature | Detail |
+|---------|--------|
+| **Layout** | Dagre hierarchical DAG |
+| **Live sync** | SWR polling (2s interval) |
+| **Node colors** | 🟢 Validated · 🔵 Active · 🔴 Rejected · 🟣 Branching |
+| **Edge types** | Animated (branch) · Dashed (contradiction) · Solid (support) · Dotted (aggregation) |
+| **Score bars** | Per-node confidence (0–100%) |
+| **Minimap** | Bottom-right overview |
+
+```bash
+cd visualizer && npm install && npm run dev
+# → http://localhost:5173
+```
+
+### Architecture
+
+```
+┌─────────────────┐     Stdio      ┌──────────────────┐
+│   AI Agent      │ ◄────────────► │  MCP Server      │
+│ (Gemini/Cursor) │                │  (index.ts)      │
+└─────────────────┘                │                  │
+                                   │  Session Registry │
+┌─────────────────┐    HTTP:3001   │  ThoughtGraph[]  │
+│   Visualizer    │ ◄────────────► │                  │
+│  React + Vite   │   /api/graph   │  Express Bridge  │
+│  :5173          │                └──────────────────┘
+└─────────────────┘                        │
+                              thought-graph-state-{session}.json
+                              (per-session file persistence)
+```
+
+---
+
+## 🔬 GoT Compliance
+
+Based on [Besta et al., 2023 — "Graph of Thoughts"](https://arxiv.org/abs/2308.09687):
+
+| Primitive | Implementation | Version |
+|-----------|---------------|---------|
+| **Generate** | `propose_thought` | v1.0 |
+| **Evaluate** | `evaluate_thought` | v1.0 |
+| **Backtrack** | `evaluate_thought(status: rejected)` | v1.0 |
+| **Aggregate** | `aggregate_thoughts` — weighted synthesis | v3.0 |
+| **Prune** | `prune_branch` — hard + soft modes | v3.0 |
+| **Converge** | `find_winning_path` — beam search | v3.0 |
+| **Governance** | Engine-level guards + session isolation | v3.0 |
+| **Replay** | `export_snapshot` / `restore_snapshot` | v3.0 |
+| Volume Control | Roadmap | — |
+| Controller Loop | Roadmap | — |
+
+---
+
+## 🏗 Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Runtime | TypeScript · Node.js v20+ |
+| Protocol | `@modelcontextprotocol/sdk` ^1.26 |
+| Validation | Zod schemas with `.max()` length guards |
+| Governance | Engine-level: node/depth/branch caps, cycle detection |
+| HTTP Bridge | Express |
+| Visualizer | React 19 · Vite · `@xyflow/react` · Dagre · SWR |
+| Persistence | Session-scoped JSON with `fs.watchFile` sync |
+| Concurrency | Async mutex (`withLock`) per session |
+
+## 📁 Structure
+
+```
+thought-graph/
+├── src/
+│   ├── index.ts              # Bootstrap (Stdio + HTTP)
+│   ├── server/
+│   │   ├── mcp.ts            # 10 MCP tool registrations
+│   │   └── http.ts           # Express bridge + SSE
+│   ├── graph/
+│   │   ├── ThoughtGraph.ts   # Core DAG engine + governance
+│   │   └── index.ts          # Session registry exports
+│   └── types.ts              # GraphLimits, SessionContext, GraphMetrics
+├── visualizer/               # React + Vite dashboard
+├── tests/                    # Unit tests
+├── docs/assets/              # Demo screenshots & state
+└── dist/                     # Compiled output
+```
+
+## 📜 License
+
+MIT
+
+---
+
+<p align="center">
+  <sub>Evolution of sequential thinking — because the best ideas don't come in a straight line.</sub>
+</p>

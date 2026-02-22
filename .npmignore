@@ -1,0 +1,19 @@
+# Ignore everything except what ships
+src/
+visualizer/
+tests/
+docs/
+.spec/
+.specify/
+.agent/
+.agents/
+.gemini/
+.github/
+*.ts
+!dist/**/*.js
+!dist/**/*.d.ts
+tsconfig.json
+thought-graph-state*.json
+.gitignore
+.npmrc
+.env*

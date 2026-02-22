@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Brain, CheckCircle2, XCircle, GitBranch, Sparkles } from 'lucide-react';
 import './ThoughtNode.css';
 
@@ -38,7 +38,7 @@ const statusConfig = {
 };
 
 function ThoughtNode({ data, id }: NodeProps) {
-    const nodeData = data as ThoughtNodeData;
+    const nodeData = data as unknown as ThoughtNodeData;
     const config = statusConfig[nodeData.status] || statusConfig.active;
     const Icon = config.icon;
 
