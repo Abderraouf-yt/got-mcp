@@ -260,6 +260,8 @@ graph.restoreSnapshot(snapshot);  // Deterministic replay
 
 ## 📊 Visualizer
 
+**[🌐 Live Demo →](https://got-mcp-visualizer.netlify.app)**
+
 A React 19 + Vite dashboard with a **cyber-industrial UI** — real-time graph rendering via React Flow + Dagre layout.
 
 | Feature | Detail |

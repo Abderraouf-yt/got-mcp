@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useCallback, useRef, useState } from 'react';
 import useSWR from 'swr';
 import dagre from 'dagre';
 import {
@@ -17,11 +17,11 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import ThoughtNode from './components/ThoughtNode';
-import { Network, Zap, Wifi, WifiOff } from 'lucide-react';
+import { Network, Zap, Wifi, WifiOff, Radio } from 'lucide-react';
 import './App.css';
 
-// Bridge API endpoint
-const BRIDGE_URL = 'http://localhost:3001';
+// Bridge API endpoint — configurable via env for deployment flexibility
+const BRIDGE_URL = import.meta.env.VITE_BRIDGE_URL || 'http://localhost:3001';
 
 interface ThoughtNodeData {
   id: string;
@@ -42,16 +42,15 @@ interface GraphData {
   edges: ThoughtEdge[];
 }
 
-// Vercel Best Practice: `rendering-hoist-jsx` — Hoist static constants outside the component
 const NODE_WIDTH = 300;
 const NODE_HEIGHT = 200;
 
-// Edge styling per relation type — hoisted for stable reference
 const edgeStyles: Record<string, { stroke: string; strokeWidth: number; animated?: boolean; strokeDasharray?: string }> = {
   refinement: { stroke: '#6366f1', strokeWidth: 2, animated: true },
   support: { stroke: '#10b981', strokeWidth: 2, animated: false },
   contradiction: { stroke: '#f43f5e', strokeWidth: 2, strokeDasharray: '8 4', animated: false },
   branch: { stroke: '#a78bfa', strokeWidth: 2, animated: true },
+  aggregation: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '4 4', animated: false },
 };
 
 /**
@@ -67,34 +66,29 @@ function getLayoutedElements(
   dagreGraph.setDefaultEdgeLabel(() => ({}));
   dagreGraph.setGraph({
     rankdir: direction,
-    nodesep: 80,      // horizontal spacing between nodes
-    ranksep: 120,     // vertical spacing between ranks (levels)
-    edgesep: 40,      // spacing between edges
+    nodesep: 80,
+    ranksep: 120,
+    edgesep: 40,
     marginx: 40,
     marginy: 40,
   });
 
-  // Register nodes with dagre
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
   });
 
-  // Register edges with dagre so it knows the graph structure
   edges.forEach((edge) => {
     dagreGraph.setEdge(edge.from, edge.to);
   });
 
-  // Run the layout algorithm
   dagre.layout(dagreGraph);
 
-  // Map dagre output back to React Flow nodes
   const layoutedNodes: Node[] = nodes.map((node) => {
     const dagreNode = dagreGraph.node(node.id);
     return {
       id: node.id,
       type: 'thoughtNode',
       position: {
-        // dagre gives center coords; offset to top-left for React Flow
         x: dagreNode.x - NODE_WIDTH / 2,
         y: dagreNode.y - NODE_HEIGHT / 2,
       },
@@ -107,7 +101,6 @@ function getLayoutedElements(
     };
   });
 
-  // Convert edges with enhanced visual styling
   const layoutedEdges: Edge[] = edges.map((edge, index) => {
     const style = edgeStyles[edge.relation] || edgeStyles.refinement;
     return {
@@ -147,16 +140,24 @@ function getLayoutedElements(
   return { nodes: layoutedNodes, edges: layoutedEdges };
 }
 
-// Vercel Best Practice: `client-swr-dedup` — SWR fetcher hoisted outside component
-const fetcher = (url: string) => fetch(url).then((res) => {
-  if (!res.ok) throw new Error('Failed to fetch');
-  return res.json();
-});
+/**
+ * Smart fetcher: tries the live bridge first, falls back to bundled demo state.
+ * Enables the visualizer to work both locally (live MCP) and deployed (static demo).
+ */
+async function smartFetcher(url: string): Promise<GraphData> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) throw new Error('Bridge responded with error');
+    return await res.json();
+  } catch {
+    // Bridge unreachable — load bundled demo state
+    const demoRes = await fetch('/demo-state.json');
+    if (!demoRes.ok) throw new Error('No bridge and no demo state available');
+    return await demoRes.json();
+  }
+}
 
-// Vercel Best Practice: `rendering-hoist-jsx` — hoisted nodeTypes
 const nodeTypes = { thoughtNode: ThoughtNode };
-
-// Vercel Best Practice: `rerender-memo-with-default-value` — hoisted default fitView options
 const fitViewOptions = { padding: 0.4, duration: 600 };
 
 function GraphCanvas() {
@@ -164,18 +165,25 @@ function GraphCanvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { fitView } = useReactFlow();
   const prevNodeCountRef = useRef(0);
+  const [isDemo, setIsDemo] = useState(false);
 
-  // Vercel Best Practice: `client-swr-dedup` — automatic request deduplication and caching
-  const { data, error, isLoading } = useSWR<GraphData>(`${BRIDGE_URL}/api/graph`, fetcher, {
-    refreshInterval: 2000,
+  const { data, error, isLoading } = useSWR<GraphData>(`${BRIDGE_URL}/api/graph`, smartFetcher, {
+    refreshInterval: isDemo ? 0 : 2000, // Stop polling in demo mode
     revalidateOnFocus: false,
     dedupingInterval: 2000,
+    onSuccess: (data) => {
+      // Detect demo mode: if the demo state has the specific root question
+      const isUsingDemo = data?.nodes?.[0]?.thought?.includes('CRDTs or Operational Transformation');
+      // But only flag as demo if bridge was actually unreachable
+      fetch(`${BRIDGE_URL}/health`, { signal: AbortSignal.timeout(2000) })
+        .then(() => setIsDemo(false))
+        .catch(() => setIsDemo(!!isUsingDemo || true));
+    },
   });
 
-  const connected = !error && data !== undefined;
+  const connected = !error && data !== undefined && !isDemo;
   const nodeCount = data?.nodes?.length || 0;
 
-  // Vercel Best Practice: `rerender-functional-setstate` — stable callback using useCallback
   const applyLayout = useCallback((graphData: GraphData) => {
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
       graphData.nodes,
@@ -190,10 +198,8 @@ function GraphCanvas() {
     if (data && data.nodes.length > 0) {
       applyLayout(data);
 
-      // Only re-fit the view when node count changes (new nodes added/removed)
       if (data.nodes.length !== prevNodeCountRef.current) {
         prevNodeCountRef.current = data.nodes.length;
-        // Small delay to let React Flow render the new nodes before fitting
         setTimeout(() => fitView(fitViewOptions), 100);
       }
     } else if (data && data.nodes.length === 0) {
@@ -203,11 +209,9 @@ function GraphCanvas() {
     }
   }, [data, applyLayout, fitView, setNodes, setEdges]);
 
-  // Vercel Best Practice: `rerender-memo` — memoize derived state computation
   const statusCounts = useMemo(() => {
     const counts = { active: 0, validated: 0, rejected: 0, branching: 0 };
     if (!data?.nodes) return counts;
-    // Vercel Best Practice: `js-combine-iterations` — single pass through array
     for (const node of data.nodes) {
       if (node.status in counts) counts[node.status as keyof typeof counts]++;
     }
@@ -216,6 +220,17 @@ function GraphCanvas() {
 
   return (
     <div className="app-container">
+      {/* Demo Mode Banner */}
+      {isDemo && (
+        <div className="demo-banner">
+          <Radio size={14} />
+          <span>Demo Mode — showing a sample reasoning session.</span>
+          <a href="https://www.npmjs.com/package/got-mcp" target="_blank" rel="noopener noreferrer">
+            Install got-mcp →
+          </a>
+        </div>
+      )}
+
       {/* Header */}
       <header className="app-header">
         <div className="header-brand">
@@ -223,7 +238,7 @@ function GraphCanvas() {
             <Network size={20} />
           </div>
           <div className="brand-text">
-            <h1>Thought Graph</h1>
+            <h1>GoT MCP</h1>
             <span className="brand-subtitle">Graph of Thoughts Visualizer</span>
           </div>
         </div>
@@ -248,9 +263,9 @@ function GraphCanvas() {
         </div>
 
         <div className="header-actions">
-          <div className={`connection-status ${connected ? 'connected' : 'disconnected'}`}>
-            {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
-            <span>{connected ? 'Live' : 'Offline'}</span>
+          <div className={`connection-status ${connected ? 'connected' : isDemo ? 'demo' : 'disconnected'}`}>
+            {connected ? <Wifi size={14} /> : isDemo ? <Radio size={14} /> : <WifiOff size={14} />}
+            <span>{connected ? 'Live' : isDemo ? 'Demo' : 'Offline'}</span>
           </div>
         </div>
       </header>
@@ -263,7 +278,7 @@ function GraphCanvas() {
               <Zap size={48} />
             </div>
             <h2>Waiting for Thoughts</h2>
-            <p>Use the thought-graph MCP tools to add reasoning nodes.</p>
+            <p>Use the got-mcp MCP tools to add reasoning nodes.</p>
             <code>propose_thought("Your idea here")</code>
           </div>
         ) : (
@@ -325,7 +340,7 @@ function GraphCanvas() {
         </div>
         <div className="footer-right">
           <span className="last-update">
-            {isLoading ? 'Syncing...' : connected ? 'Live Sync Active' : 'Disconnected'}
+            {isLoading ? 'Syncing...' : connected ? 'Live Sync Active' : isDemo ? 'Demo Mode' : 'Disconnected'}
           </span>
         </div>
       </footer>
@@ -335,7 +350,6 @@ function GraphCanvas() {
 
 /**
  * App wrapper — ReactFlowProvider is required for useReactFlow() hook
- * Vercel Best Practice: `advanced-init-once` — Provider initialized once at app root
  */
 function App() {
   return (
