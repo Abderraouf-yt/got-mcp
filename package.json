@@ -1,6 +1,6 @@
 {
   "name": "got-mcp",
-  "version": "3.0.1",
+  "version": "3.1.0",
   "description": "Graph of Thoughts (GoT) MCP Server — bounded, auditable reasoning for AI agents",
   "main": "dist/index.js",
   "type": "module",
