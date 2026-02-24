@@ -355,8 +355,21 @@ export function createServerInstance(): McpServer {
         "Restore graph state from a previously exported snapshot. Replaces ALL current state. Use for deterministic replay or recovery.",
         {
             snapshot: z.object({
-                nodes: z.array(z.any()).describe("Array of ThoughtNode objects"),
-                edges: z.array(z.any()).describe("Array of ThoughtEdge objects"),
+                nodes: z.array(z.object({
+                    id: z.string(),
+                    thought: z.string(),
+                    status: z.enum(["active", "validated", "rejected", "branching"]),
+                    score: z.number(),
+                    metadata: z.record(z.any()).optional(),
+                    createdAt: z.string(),
+                    updatedAt: z.string()
+                })).describe("Array of ThoughtNode objects"),
+                edges: z.array(z.object({
+                    from: z.string(),
+                    to: z.string(),
+                    relation: z.enum(["refinement", "contradiction", "support", "branch", "aggregation"]),
+                    createdAt: z.string()
+                })).describe("Array of ThoughtEdge objects"),
                 nodeCounter: z.number().int().min(0).describe("The node counter value from the snapshot"),
             }).describe("A snapshot object previously returned by export_snapshot"),
         },
