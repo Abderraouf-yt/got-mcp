@@ -1,10 +1,13 @@
 {
-  "name": "got-mcp",
-  "version": "3.1.1",
+  "name": "@abderraouf-yt/got-mcp",
+  "version": "3.2.0",
   "description": "Graph of Thoughts (GoT) MCP Server — bounded, auditable reasoning for AI agents",
   "main": "dist/index.js",
   "bin": {
     "got-mcp": "./dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "type": "module",
   "license": "MIT",

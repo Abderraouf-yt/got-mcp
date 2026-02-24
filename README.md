@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/got-mcp"><img src="https://img.shields.io/npm/v/got-mcp?style=flat-square&color=00e5ff&label=npm" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/@abderraouf-yt/got-mcp"><img src="https://img.shields.io/npm/v/@abderraouf-yt/got-mcp?style=flat-square&color=00e5ff&label=npm" alt="npm version" /></a>
   <a href="https://github.com/Abderraouf-yt/got-mcp"><img src="https://img.shields.io/github/stars/Abderraouf-yt/got-mcp?style=flat-square&color=ff00ff&label=stars" alt="GitHub stars" /></a>
   <a href="#"><img src="https://img.shields.io/badge/node-%3E%3D20-00e5ff?style=flat-square" alt="Node.js" /></a>
   <a href="#"><img src="https://img.shields.io/badge/MCP-1.26+-ff00ff?style=flat-square" alt="MCP SDK" /></a>
@@ -57,7 +57,7 @@ Graph of Thoughts: A → B₁ ←contradiction→ C₁, B₂ →aggregate→ D  
 ### Option 1: Install from npm
 
 ```bash
-npm install -g got-mcp
+npm install -g @abderraouf-yt/got-mcp
 ```
 
 ### Option 2: Clone & Build
@@ -76,7 +76,7 @@ Add to your MCP config (`~/.gemini/settings.json`, VS Code `mcp.json`, etc.):
 {
   "got-mcp": {
     "command": "npx",
-    "args": ["-y", "got-mcp"],
+    "args": ["-y", "@abderraouf-yt/got-mcp"],
     "env": { "THOUGHT_GRAPH_HTTP_PORT": "3001" }
   }
 }
