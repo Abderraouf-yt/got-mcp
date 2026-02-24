@@ -1,25 +1,27 @@
 <p align="center">
-  <img src="docs/assets/hero-complex-graph.png" alt="Thought Graph — 13-node reasoning DAG visualized in cyber-industrial UI" width="100%" />
+  <img src="docs/assets/hero-complex-graph.png" alt="GoT MCP — 13-node reasoning DAG visualized in cyber-industrial UI" width="100%" />
 </p>
 
-<h1 align="center">🧠 THOUGHT GRAPH</h1>
+<h1 align="center">🧠 GOT MCP</h1>
 
 <p align="center">
   <strong>Graph of Thoughts MCP Server — Bounded, Auditable Reasoning for AI Agents</strong>
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/thought-graph"><img src="https://img.shields.io/npm/v/thought-graph?style=flat-square&color=00e5ff&label=npm" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/got-mcp"><img src="https://img.shields.io/npm/v/got-mcp?style=flat-square&color=00e5ff&label=npm" alt="npm version" /></a>
+  <a href="https://github.com/Abderraouf-yt/got-mcp"><img src="https://img.shields.io/github/stars/Abderraouf-yt/got-mcp?style=flat-square&color=ff00ff&label=stars" alt="GitHub stars" /></a>
   <a href="#"><img src="https://img.shields.io/badge/node-%3E%3D20-00e5ff?style=flat-square" alt="Node.js" /></a>
   <a href="#"><img src="https://img.shields.io/badge/MCP-1.26+-ff00ff?style=flat-square" alt="MCP SDK" /></a>
   <a href="#"><img src="https://img.shields.io/badge/tools-10-00ff88?style=flat-square" alt="Tools" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="License" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/GoT-Besta%20et%20al.%202023-ff6b6b?style=flat-square" alt="GoT Paper" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="License" /></a>
+  <a href="https://got-mcp-visualizer.netlify.app"><img src="https://img.shields.io/badge/demo-live-00e5ff?style=flat-square&logo=netlify" alt="Live Demo" /></a>
+  <a href="https://arxiv.org/abs/2308.09687"><img src="https://img.shields.io/badge/GoT-Besta%20et%20al.%202023-ff6b6b?style=flat-square" alt="GoT Paper" /></a>
 </p>
 
 <p align="center">
   <a href="#-quick-start">⚡ Quick Start</a> •
-  <a href="#-live-demo">🎬 Live Demo</a> •
+  <a href="https://got-mcp-visualizer.netlify.app">� Live Demo</a> •
   <a href="#-tools-10">🛠 Tools</a> •
   <a href="#-how-it-thinks">🧬 How It Thinks</a> •
   <a href="#-governance">🔒 Governance</a> •
