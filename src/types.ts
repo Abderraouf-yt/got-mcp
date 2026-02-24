@@ -111,8 +111,8 @@ export interface GraphMetrics {
  * Server configuration constants.
  */
 export const SERVER_CONFIG = {
-    name: "got-mcp",
-    version: "3.0.0",
+    name: "@abderraouf-yt/got-mcp",
+    version: "3.2.0",
     description: "Graph of Thoughts (GoT) MCP Server — bounded, auditable reasoning",
 } as const;
 
@@ -120,5 +120,5 @@ export const SERVER_CONFIG = {
  * Resource URIs used by the server.
  */
 export const RESOURCE_URIS = {
-    currentGraph: "got-mcp://current",
+    currentGraph: "@abderraouf-yt/got-mcp://current",
 } as const;
