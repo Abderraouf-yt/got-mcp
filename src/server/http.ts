@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import net from "net";
+import crypto from "crypto";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { SERVER_CONFIG } from "../types.js";
 import { getGraphInstance } from "../graph/index.js";
@@ -61,7 +62,7 @@ export async function startHttpServer(): Promise<net.Server> {
     const activeSessions = new Map<string, SSEServerTransport>();
 
     app.get("/sse", async (req, res) => {
-        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const sessionId = `session_${crypto.randomUUID()}`;
 
         const transport = new SSEServerTransport("/messages", res);
         const mcpServer = createServerInstance();
