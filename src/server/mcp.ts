@@ -1,7 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { SERVER_CONFIG, RESOURCE_URIS } from "../types.js";
+import type { ConfidenceVector } from "../types.js";
 import { getGraphInstance, ThoughtGraph } from "../graph/index.js";
+import { getContextInstance } from "../context/index.js";
 
 /**
  * Trigger autonomous LLM audit via MCP Sampling.
@@ -68,6 +70,7 @@ export function createServerInstance(): McpServer {
     });
 
     const graph = getGraphInstance();
+    const contextStore = getContextInstance();
 
     // 1. Register Resources
     server.resource(
@@ -77,6 +80,19 @@ export function createServerInstance(): McpServer {
             contents: [{
                 uri: uri.href,
                 text: JSON.stringify(graph.getGraph(), null, 2),
+                mimeType: "application/json"
+            }]
+        })
+    );
+
+    // v4.0: Shared Context Store resource (CA-MCP pattern)
+    server.resource(
+        "Shared Context Store",
+        RESOURCE_URIS.contextStore,
+        async (uri: URL) => ({
+            contents: [{
+                uri: uri.href,
+                text: JSON.stringify(contextStore.getAll(), null, 2),
                 mimeType: "application/json"
             }]
         })
@@ -130,8 +146,14 @@ export function createServerInstance(): McpServer {
             score: z.number().min(0).max(1).optional().describe("Omit to trigger autonomous LLM audit (0.0 to 1.0)"),
             status: z.enum(["active", "validated", "rejected", "branching"]).optional().describe("Update the node status"),
             critique: z.string().max(2000, "Critique exceeds 2000 chars").optional().describe("Reasoning for the evaluation"),
+            confidence: z.object({
+                factual: z.number().min(0).max(1).describe("Grounded in verifiable facts"),
+                logical: z.number().min(0).max(1).describe("Reasoning chain is valid"),
+                relevance: z.number().min(0).max(1).describe("Addresses the problem directly"),
+                novelty: z.number().min(0).max(1).describe("Adds new information"),
+            }).optional().describe("v4.0: Multi-dimensional confidence — if provided, composite score is auto-computed"),
         },
-        async ({ nodeId, score, status, critique }: { nodeId: string; score?: number; status?: "active" | "validated" | "rejected" | "branching"; critique?: string }) => {
+        async ({ nodeId, score, status, critique, confidence }: { nodeId: string; score?: number; status?: "active" | "validated" | "rejected" | "branching"; critique?: string; confidence?: ConfidenceVector }) => {
             try {
                 const node = graph.getNode(nodeId);
                 if (!node) {
@@ -147,8 +169,14 @@ export function createServerInstance(): McpServer {
                     };
                 }
 
+                // v4.0: if confidence provided, compute composite score automatically
+                const finalScore = confidence
+                    ? graph.computeCompositeScore(confidence)
+                    : score;
+
                 graph.updateNode(nodeId, {
-                    score,
+                    score: finalScore,
+                    confidence,
                     status: status ?? node.status,
                     metadata: critique ? { critique } : undefined,
                 });
@@ -386,6 +414,127 @@ export function createServerInstance(): McpServer {
                         restoredEdges: graph.edgeCount,
                         previousNodes: beforeCount,
                     },
+                };
+            } catch (err) {
+                return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+            }
+        }
+    );
+
+    // ==========================================
+    // v4.0: Self-Reflection Tool (2026 pattern)
+    // ==========================================
+
+    server.tool(
+        "reflect_and_refine",
+        "Self-reflection loop: auto-critique a thought, assess confidence on 4 axes (factual, logical, relevance, novelty), and optionally branch a refined version. Implements DeepSeek-R1 self-verification pattern.",
+        {
+            nodeId: z.string().min(1).describe("Node to reflect on"),
+            critique: z.string().min(1).max(5000).describe("Your critique of this thought"),
+            confidence: z.object({
+                factual: z.number().min(0).max(1).describe("Grounded in verifiable facts (0-1)"),
+                logical: z.number().min(0).max(1).describe("Reasoning chain is valid (0-1)"),
+                relevance: z.number().min(0).max(1).describe("Addresses the problem directly (0-1)"),
+                novelty: z.number().min(0).max(1).describe("Adds new information vs restating (0-1)"),
+            }).describe("Multi-dimensional confidence assessment"),
+            refinedThought: z.string().max(5000).optional()
+                .describe("If critique reveals a flaw, provide the improved version to auto-branch"),
+        },
+        async ({ nodeId, critique, confidence, refinedThought }: { nodeId: string; critique: string; confidence: ConfidenceVector; refinedThought?: string }) => {
+            try {
+                const result = graph.reflectAndRefine(nodeId, critique, confidence, refinedThought);
+
+                notifyUpdate();
+                const parts = [
+                    `Reflection on ${nodeId}: composite score ${result.compositeScore}`,
+                    `Critique node: ${result.critiqueId}`,
+                ];
+                if (result.branchId) {
+                    parts.push(`Refined branch: ${result.branchId} (auto-branched because score < 0.7)`);
+                }
+
+                return {
+                    content: [{ type: "text", text: parts.join("\n") }],
+                    structuredContent: {
+                        nodeId,
+                        critiqueId: result.critiqueId,
+                        branchId: result.branchId ?? null,
+                        compositeScore: result.compositeScore,
+                        confidence,
+                    },
+                };
+            } catch (err) {
+                return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+            }
+        }
+    );
+
+    // ==========================================
+    // v4.0: Shared Context Store Tools (CA-MCP)
+    // ==========================================
+
+    server.tool(
+        "context_set",
+        "Write a key-value pair to the shared context store. Tracks source provenance for trust scoring. Use this to share intermediate results between reasoning steps.",
+        {
+            key: z.string().min(1).max(200).describe("Context key (e.g. 'user_requirements', 'domain_constraints')"),
+            value: z.unknown().describe("Any JSON-serializable value"),
+            source: z.string().min(1).max(200).describe("Source of this context (e.g. 'propose_thought:node_3', 'user_input')"),
+        },
+        async ({ key, value, source }: { key: string; value: unknown; source: string }) => {
+            contextStore.set(key, value, source);
+            return {
+                content: [{ type: "text", text: `Context set: ${key} (source: ${source})` }],
+                structuredContent: { key, source, totalEntries: contextStore.size },
+            };
+        }
+    );
+
+    server.tool(
+        "context_get",
+        "Read a value from the shared context store. Returns value + source provenance. Check context before generating redundant thoughts.",
+        {
+            key: z.string().min(1).describe("Context key to retrieve"),
+        },
+        async ({ key }: { key: string }) => {
+            const entry = contextStore.getWithProvenance(key);
+            if (!entry) {
+                return { content: [{ type: "text", text: `Context key '${key}' not found` }], isError: true };
+            }
+            return {
+                content: [{ type: "text", text: JSON.stringify(entry, null, 2) }],
+                structuredContent: { key, ...entry },
+            };
+        }
+    );
+
+    server.tool(
+        "context_list",
+        "List all keys in the shared context store with their sources. Use to see what knowledge is already available before generating new thoughts.",
+        {},
+        async () => {
+            const entries = contextStore.list();
+            return {
+                content: [{ type: "text", text: entries.length > 0 ? JSON.stringify(entries, null, 2) : "Context store is empty" }],
+                structuredContent: { entries, count: entries.length },
+            };
+        }
+    );
+
+    // ==========================================
+    // v4.0: Reasoning Trace Export
+    // ==========================================
+
+    server.tool(
+        "export_reasoning_trace",
+        "Export the current graph's best reasoning path as a structured trace. Compatible with Long CoT format used by DeepSeek-R1 and o3 for RL training and context.",
+        {},
+        async () => {
+            try {
+                const trace = graph.exportReasoningTrace();
+                return {
+                    content: [{ type: "text", text: JSON.stringify(trace, null, 2) }],
+                    structuredContent: trace as unknown as Record<string, unknown>,
                 };
             } catch (err) {
                 return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };

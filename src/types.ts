@@ -14,7 +14,7 @@ export type ThoughtStatus = "active" | "validated" | "rejected" | "branching";
 /**
  * Type of relationship between thought nodes.
  */
-export type ThoughtRelation = "refinement" | "contradiction" | "support" | "branch" | "aggregation";
+export type ThoughtRelation = "refinement" | "contradiction" | "support" | "branch" | "aggregation" | "reflection";
 
 /**
  * A node in the thought graph representing a single unit of reasoning.
@@ -24,9 +24,50 @@ export interface ThoughtNode {
     thought: string;
     status: ThoughtStatus;
     score: number;
+    confidence?: ConfidenceVector;
     metadata?: Record<string, unknown>;
     createdAt: string;
     updatedAt: string;
+}
+
+/**
+ * Multi-dimensional confidence scoring (2026 pattern).
+ * Each axis is 0.0–1.0. Composite score = weighted mean.
+ * @see https://arxiv.org/abs/2601.11595 CA-MCP
+ */
+export interface ConfidenceVector {
+    factual: number;
+    logical: number;
+    relevance: number;
+    novelty: number;
+}
+
+/**
+ * A single step in an exported reasoning trace.
+ */
+export interface ReasoningStep {
+    step: number;
+    nodeId: string;
+    thought: string;
+    score: number;
+    confidence?: ConfidenceVector;
+    status: ThoughtStatus;
+    reflections: string[];
+    alternatives: string[];
+}
+
+/**
+ * Structured reasoning trace for RL model consumption.
+ * Exported via the export_reasoning_trace tool.
+ */
+export interface ReasoningTrace {
+    question: string;
+    steps: ReasoningStep[];
+    conclusion: string;
+    compositeScore: number;
+    totalNodes: number;
+    totalEdges: number;
+    exportedAt: string;
 }
 
 /**
@@ -112,8 +153,8 @@ export interface GraphMetrics {
  */
 export const SERVER_CONFIG = {
     name: "@abderraouf-yt/got-mcp",
-    version: "3.2.0",
-    description: "Graph of Thoughts (GoT) MCP Server — bounded, auditable reasoning",
+    version: "4.0.0",
+    description: "Graph of Thoughts (GoT) MCP Server — bounded, auditable reasoning with self-reflection and shared context",
 } as const;
 
 /**
@@ -121,4 +162,5 @@ export const SERVER_CONFIG = {
  */
 export const RESOURCE_URIS = {
     currentGraph: "@abderraouf-yt/got-mcp://current",
+    contextStore: "@abderraouf-yt/got-mcp://context",
 } as const;

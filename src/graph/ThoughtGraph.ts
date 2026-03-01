@@ -16,6 +16,9 @@ import type {
     GraphState,
     GraphLimits,
     GraphMetrics,
+    ConfidenceVector,
+    ReasoningStep,
+    ReasoningTrace,
 } from "../types.js";
 import { DEFAULT_GRAPH_LIMITS } from "../types.js";
 
@@ -793,6 +796,154 @@ export class ThoughtGraph {
         } finally {
             release!();
         }
+    }
+
+    // ==========================================
+    // v4.0: Self-Reflection + Multi-Dimensional Scoring
+    // ==========================================
+
+    /**
+     * Compute a composite score from a ConfidenceVector.
+     * Weights: logical (35%), factual (30%), relevance (25%), novelty (10%).
+     */
+    computeCompositeScore(confidence: ConfidenceVector): number {
+        const score = (
+            confidence.factual * 0.30 +
+            confidence.logical * 0.35 +
+            confidence.relevance * 0.25 +
+            confidence.novelty * 0.10
+        );
+        return Math.round(score * 100) / 100;
+    }
+
+    /**
+     * Self-reflection loop (2026 pattern).
+     * Creates a critique node linked via "reflection" edge.
+     * If a refined thought is provided, also creates a branch.
+     *
+     * @param nodeId - Node to reflect on
+     * @param critique - The critique text
+     * @param confidence - Multi-dimensional confidence assessment
+     * @param refinedThought - Optional improved version of the thought
+     * @returns IDs of created nodes
+     */
+    reflectAndRefine(
+        nodeId: string,
+        critique: string,
+        confidence: ConfidenceVector,
+        refinedThought?: string
+    ): { critiqueId: string; branchId?: string; compositeScore: number } {
+        const node = this.nodes.get(nodeId);
+        if (!node) {
+            throw new ThoughtGraphNotFoundError(nodeId);
+        }
+
+        const compositeScore = this.computeCompositeScore(confidence);
+
+        // Update the original node with confidence data
+        this.nodes.set(nodeId, {
+            ...node,
+            score: compositeScore,
+            confidence,
+            updatedAt: new Date().toISOString(),
+        });
+
+        // Create critique node
+        const critiqueId = this.addNode(`[Reflection] ${critique}`);
+        this.addEdge(nodeId, critiqueId, "reflection");
+
+        // Update critique node with assessment metadata
+        const critiqueNode = this.nodes.get(critiqueId)!;
+        this.nodes.set(critiqueId, {
+            ...critiqueNode,
+            score: compositeScore,
+            confidence,
+            status: compositeScore >= 0.7 ? "validated" : "active",
+            metadata: {
+                ...(critiqueNode.metadata ?? {}),
+                reflectionOf: nodeId,
+                assessmentType: "self-reflection",
+            },
+        });
+
+        let branchId: string | undefined;
+
+        // If critique reveals a flaw and refined version provided, branch
+        if (refinedThought && compositeScore < 0.7) {
+            branchId = this.addNode(refinedThought);
+            this.addEdge(nodeId, branchId, "branch");
+
+            const branchNode = this.nodes.get(branchId)!;
+            this.nodes.set(branchId, {
+                ...branchNode,
+                status: "active",
+                metadata: {
+                    ...(branchNode.metadata ?? {}),
+                    refinedFrom: nodeId,
+                    refinementReason: critique,
+                },
+            });
+        }
+
+        this.stateVersion++;
+        this.save();
+
+        return { critiqueId, branchId, compositeScore };
+    }
+
+    /**
+     * Export the winning path as a structured reasoning trace.
+     * Format compatible with Long CoT used by DeepSeek-R1 and o3.
+     */
+    exportReasoningTrace(): ReasoningTrace {
+        const result = this.findWinningPath({ beamWidth: 1 });
+
+        if (result.path.length === 0) {
+            return {
+                question: "",
+                steps: [],
+                conclusion: "",
+                compositeScore: 0,
+                totalNodes: this.nodes.size,
+                totalEdges: this.edges.length,
+                exportedAt: new Date().toISOString(),
+            };
+        }
+
+        const steps: ReasoningStep[] = result.path.map((node, index) => {
+            // Find reflection children
+            const reflections = this.edges
+                .filter(e => e.from === node.id && e.relation === "reflection")
+                .map(e => this.nodes.get(e.to)?.thought ?? "")
+                .filter(Boolean);
+
+            // Find branch siblings (alternative paths)
+            const alternatives = this.edges
+                .filter(e => e.from === node.id && e.relation === "branch")
+                .map(e => this.nodes.get(e.to)?.thought ?? "")
+                .filter(Boolean);
+
+            return {
+                step: index + 1,
+                nodeId: node.id,
+                thought: node.thought,
+                score: node.score,
+                confidence: node.confidence,
+                status: node.status,
+                reflections,
+                alternatives,
+            };
+        });
+
+        return {
+            question: result.path[0].thought,
+            steps,
+            conclusion: result.path[result.path.length - 1].thought,
+            compositeScore: result.totalScore / result.path.length,
+            totalNodes: this.nodes.size,
+            totalEdges: this.edges.length,
+            exportedAt: new Date().toISOString(),
+        };
     }
 }
 
