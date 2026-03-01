@@ -388,7 +388,7 @@ export function createServerInstance(): McpServer {
                     thought: z.string(),
                     status: z.enum(["active", "validated", "rejected", "branching"]),
                     score: z.number(),
-                    metadata: z.record(z.any()).optional(),
+                    metadata: z.record(z.string(), z.any()).optional(),
                     createdAt: z.string(),
                     updatedAt: z.string()
                 })).describe("Array of ThoughtNode objects"),
