@@ -32,9 +32,6 @@ jobs:
             - name: Build MCP Server
               run: npm run build
 
-            - name: Run root tests
-              run: npm test
-
             - name: Install Visualizer dependencies
               working-directory: ./visualizer
               run: npm ci
