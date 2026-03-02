@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<evaluation>
+  <!-- 
+    Prerequisite for running these evaluations:
+    Copy `docs/assets/demo-state.json` to the working directory as `thought-graph-state.json` 
+    so the `get_thought_graph` tool has data to expose.
+  -->
+  <qa_pair>
+    <question>Use the thought graph MCP to explore the current graph. What is the exact confidence score of the winning node that recommends using Yjs + y-websocket + Hocuspocus?</question>
+    <answer>1</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Explore the thought graph. Which node ID represents the rejected branch that proposed using ShareDB with MongoDB?</question>
+    <answer>node_5</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Check the current graph metrics or state. How many total nodes are assigned a status of "rejected"?</question>
+    <answer>2</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Look at the descendants of node 4 (the Yjs branch). Which specific node ID contradicted the Yjs path by raising a concern about memory overhead ballooning to 10x the document size?</question>
+    <answer>node_7</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Examine the edges in the thought graph. What is the relation type of the edge connecting node_4 to node_6?</question>
+    <answer>support</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>The hybrid approach (Branch C) was proposed in node_11. Find the two node IDs that represent the direct descendants (outgoing edges) of node_11. Format as comma separated.</question>
+    <answer>node_12, node_13</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>In the thought graph metadata or structure, what is the exact string timestamp (createdAt) of the root node (node_1)?</question>
+    <answer>2026-02-22T02:26:00.459Z</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Node 5 explored OT with ShareDB. Which node ID contradicted it by highlighting that edits are lost if the connection drops offline?</question>
+    <answer>node_9</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Search the graph for the node discussing TypeScript support and sub-100ms latency for Yjs. What is its exact score?</question>
+    <answer>0.95</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Find the node that resolved the CRDT memory contradiction by discussing garbage collection via Y.Doc snapshots. What is its node ID?</question>
+    <answer>node_10</answer>
+  </qa_pair>
+</evaluation>

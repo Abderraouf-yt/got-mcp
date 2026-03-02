@@ -12,7 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Stability**: Capped `visualizer` ESLint to `^9.39.1` to maintain ecosystem compatibility with React plugins.
 
 ### Changed
+- **Architecture**: Algorithmically refactored all 15 MCP tools to use the modern `server.registerTool()` signature, injecting strict `readOnlyHint` and `destructiveHint` annotations to comply with 2026 `mcp-builder` standards.
 - **Dependencies**: Migrated root MCP server to **Zod 4.3.6** and updated `mcp.ts` type validation syntax.
+
+### Added
+- **Evaluations**: Created `evaluations/got-mcp-eval.xml` containing 10 rigorous, read-only complex graph-traversal questions to test LLM capabilities against the GoT engine.
 
 ## [3.2.0] - 2026-03-01
 

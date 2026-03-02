@@ -106,17 +106,20 @@ export function createServerInstance(): McpServer {
 
     // 2. Register Tools
 
-    server.tool(
-        "propose_thought",
-        "Propose a new unit of reasoning (node) in the thought graph.",
+    server.registerTool(
+"propose_thought",
         {
+            description: "Propose a new unit of reasoning (node) in the thought graph.",
+            inputSchema: {
             thought: z.string().min(1, "Thought content is required").max(5000, "Thought exceeds 5000 chars").describe("The content of the thought"),
             parentId: z.string().optional().describe("Optional parent node ID if this thought builds on a previous one"),
             relation: z.enum(["refinement", "contradiction", "support", "branch"])
                 .default("refinement")
                 .describe("How this thought relates to its parent"),
         },
-        async ({ thought, parentId, relation }: { thought: string; parentId?: string; relation?: "refinement" | "contradiction" | "support" | "branch" }) => {
+            annotations: { destructiveHint: true }
+        },
+                async ({ thought, parentId, relation }: { thought: string; parentId?: string; relation?: "refinement" | "contradiction" | "support" | "branch" }) => {
             try {
                 const nodeId = graph.addNode(thought);
 
@@ -138,10 +141,11 @@ export function createServerInstance(): McpServer {
         }
     );
 
-    server.tool(
-        "evaluate_thought",
-        "Assign a score or status to a thought node. If score is omitted, triggers autonomous LLM audit via sampling.",
+    server.registerTool(
+"evaluate_thought",
         {
+            description: "Assign a score or status to a thought node. If score is omitted, triggers autonomous LLM audit via sampling.",
+            inputSchema: {
             nodeId: z.string().min(1, "Node ID is required").describe("The ID of the node to evaluate"),
             score: z.number().min(0).max(1).optional().describe("Omit to trigger autonomous LLM audit (0.0 to 1.0)"),
             status: z.enum(["active", "validated", "rejected", "branching"]).optional().describe("Update the node status"),
@@ -153,7 +157,9 @@ export function createServerInstance(): McpServer {
                 novelty: z.number().min(0).max(1).describe("Adds new information"),
             }).optional().describe("v4.0: Multi-dimensional confidence — if provided, composite score is auto-computed"),
         },
-        async ({ nodeId, score, status, critique, confidence }: { nodeId: string; score?: number; status?: "active" | "validated" | "rejected" | "branching"; critique?: string; confidence?: ConfidenceVector }) => {
+            annotations: { destructiveHint: true }
+        },
+                async ({ nodeId, score, status, critique, confidence }: { nodeId: string; score?: number; status?: "active" | "validated" | "rejected" | "branching"; critique?: string; confidence?: ConfidenceVector }) => {
             try {
                 const node = graph.getNode(nodeId);
                 if (!node) {
@@ -192,11 +198,14 @@ export function createServerInstance(): McpServer {
         }
     );
 
-    server.tool(
-        "get_thought_graph",
-        "Retrieve the entire current thought graph.",
-        {},
-        async () => {
+    server.registerTool(
+"get_thought_graph",
+        {
+            description: "Retrieve the entire current thought graph.",
+            inputSchema: {},
+            annotations: { readOnlyHint: true }
+        },
+                async () => {
             const graphState = graph.getGraph();
             return {
                 content: [{ type: "text", text: JSON.stringify(graphState, null, 2) }],
@@ -205,11 +214,14 @@ export function createServerInstance(): McpServer {
         }
     );
 
-    server.tool(
-        "reset_graph",
-        "Clear the current reasoning session, emptying all nodes and edges.",
-        {},
-        async () => {
+    server.registerTool(
+"reset_graph",
+        {
+            description: "Clear the current reasoning session, emptying all nodes and edges.",
+            inputSchema: {},
+            annotations: { destructiveHint: true }
+        },
+                async () => {
             graph.clear();
             notifyUpdate();
             return {
@@ -221,15 +233,18 @@ export function createServerInstance(): McpServer {
 
     // 3. GoT Primitives — Aggregate, Prune, Converge
 
-    server.tool(
-        "aggregate_thoughts",
-        "GoT Primitive: Merge 2+ thought nodes into a weighted synthesis. Uses formula: Σ(score×weight)/Σ(weights). Retains full provenance and computes aggregation confidence (1 - stddev).",
+    server.registerTool(
+"aggregate_thoughts",
         {
+            description: "GoT Primitive: Merge 2+ thought nodes into a weighted synthesis. Uses formula: Σ(score×weight)/Σ(weights). Retains full provenance and computes aggregation confidence (1 - stddev).",
+            inputSchema: {
             nodeIds: z.array(z.string()).min(2, "At least 2 node IDs required").describe("Array of node IDs to merge"),
             synthesis: z.string().min(1, "Synthesis content is required").describe("The merged conclusion that combines insights from all source nodes"),
             weights: z.array(z.number().min(0).max(1)).optional().describe("Optional per-node weights (defaults to each node's score as its confidence weight)"),
         },
-        async ({ nodeIds, synthesis, weights }: { nodeIds: string[]; synthesis: string; weights?: number[] }) => {
+            annotations: { destructiveHint: true }
+        },
+                async ({ nodeIds, synthesis, weights }: { nodeIds: string[]; synthesis: string; weights?: number[] }) => {
             try {
                 const newId = graph.aggregateNodes(nodeIds, synthesis, weights);
                 const newNode = graph.getNode(newId);
@@ -253,17 +268,20 @@ export function createServerInstance(): McpServer {
         }
     );
 
-    server.tool(
-        "prune_branch",
-        "GoT Primitive: Recursively reject a node and ALL its descendants. Modes: 'hard' (score=0, status=rejected) or 'soft' (score decayed by factor, status preserved). Tracks trigger origin and original scores.",
+    server.registerTool(
+"prune_branch",
         {
+            description: "GoT Primitive: Recursively reject a node and ALL its descendants. Modes: 'hard' (score=0, status=rejected) or 'soft' (score decayed by factor, status preserved). Tracks trigger origin and original scores.",
+            inputSchema: {
             nodeId: z.string().min(1, "Node ID is required").describe("The root node of the branch to prune"),
             reason: z.string().optional().describe("Why this branch is being pruned"),
             mode: z.enum(["hard", "soft"]).default("hard").describe("'hard' zeroes scores and rejects; 'soft' decays scores while preserving status"),
             decayFactor: z.number().min(0).max(1).default(0.5).describe("Score multiplier for soft prune (0.5 = halve scores)"),
             trigger: z.enum(["manual", "auto"]).default("manual").describe("Whether this prune was triggered manually or by an auto-threshold"),
         },
-        async ({ nodeId, reason, mode, decayFactor, trigger }: { nodeId: string; reason?: string; mode?: "hard" | "soft"; decayFactor?: number; trigger?: "manual" | "auto" }) => {
+            annotations: { destructiveHint: true }
+        },
+                async ({ nodeId, reason, mode, decayFactor, trigger }: { nodeId: string; reason?: string; mode?: "hard" | "soft"; decayFactor?: number; trigger?: "manual" | "auto" }) => {
             try {
                 const result = graph.pruneFromNode(nodeId, reason, { mode, decayFactor, trigger });
 
@@ -284,15 +302,18 @@ export function createServerInstance(): McpServer {
         }
     );
 
-    server.tool(
-        "find_winning_path",
-        "GoT Primitive: Trace the best scoring path(s) from root to leaf. Default: greedy (beamWidth=1). Set beamWidth>1 for k-best beam search. Supports score threshold gating and path length caps.",
+    server.registerTool(
+"find_winning_path",
         {
+            description: "GoT Primitive: Trace the best scoring path(s) from root to leaf. Default: greedy (beamWidth=1). Set beamWidth>1 for k-best beam search. Supports score threshold gating and path length caps.",
+            inputSchema: {
             beamWidth: z.number().int().min(1).max(10).default(1).describe("Number of top paths to track (1=greedy DFS, >1=beam search)"),
             scoreThreshold: z.number().min(0).max(1).default(0).describe("Minimum node score to include in path (filters low-confidence nodes)"),
             maxPathLength: z.number().int().min(1).default(50).describe("Maximum path depth to prevent runaway traversal"),
         },
-        async ({ beamWidth, scoreThreshold, maxPathLength }: { beamWidth?: number; scoreThreshold?: number; maxPathLength?: number }) => {
+            annotations: { readOnlyHint: true }
+        },
+                async ({ beamWidth, scoreThreshold, maxPathLength }: { beamWidth?: number; scoreThreshold?: number; maxPathLength?: number }) => {
             try {
                 const result = graph.findWinningPath({ beamWidth, scoreThreshold, maxPathLength });
 
@@ -331,11 +352,14 @@ export function createServerInstance(): McpServer {
 
     // 4. Observability — Graph Metrics
 
-    server.tool(
-        "get_graph_metrics",
-        "Returns structured observability metrics: node count, edge count, max depth, avg score, prune ratio, status breakdown, and root count. Use this to monitor graph health.",
-        {},
-        async () => {
+    server.registerTool(
+"get_graph_metrics",
+        {
+            description: "Returns structured observability metrics: node count, edge count, max depth, avg score, prune ratio, status breakdown, and root count. Use this to monitor graph health.",
+            inputSchema: {},
+            annotations: { readOnlyHint: true }
+        },
+                async () => {
             try {
                 const metrics = graph.getMetrics();
                 const limits = graph.getLimits();
@@ -361,11 +385,14 @@ export function createServerInstance(): McpServer {
     );
     // 5. Replay — Snapshot Export/Restore
 
-    server.tool(
-        "export_snapshot",
-        "Export a full snapshot of the current graph state for replay, recovery, or debugging. Returns all nodes, edges, and counter as a serializable JSON object.",
-        {},
-        async () => {
+    server.registerTool(
+"export_snapshot",
+        {
+            description: "Export a full snapshot of the current graph state for replay, recovery, or debugging. Returns all nodes, edges, and counter as a serializable JSON object.",
+            inputSchema: {},
+            annotations: { readOnlyHint: true }
+        },
+                async () => {
             try {
                 const snapshot = graph.exportSnapshot();
                 return {
@@ -378,10 +405,11 @@ export function createServerInstance(): McpServer {
         }
     );
 
-    server.tool(
-        "restore_snapshot",
-        "Restore graph state from a previously exported snapshot. Replaces ALL current state. Use for deterministic replay or recovery.",
+    server.registerTool(
+"restore_snapshot",
         {
+            description: "Restore graph state from a previously exported snapshot. Replaces ALL current state. Use for deterministic replay or recovery.",
+            inputSchema: {
             snapshot: z.object({
                 nodes: z.array(z.object({
                     id: z.string(),
@@ -401,7 +429,9 @@ export function createServerInstance(): McpServer {
                 nodeCounter: z.number().int().min(0).describe("The node counter value from the snapshot"),
             }).describe("A snapshot object previously returned by export_snapshot"),
         },
-        async ({ snapshot }: { snapshot: { nodes: any[]; edges: any[]; nodeCounter: number } }) => {
+            annotations: { destructiveHint: true }
+        },
+                async ({ snapshot }: { snapshot: { nodes: any[]; edges: any[]; nodeCounter: number } }) => {
             try {
                 const beforeCount = graph.size;
                 graph.restoreSnapshot(snapshot);
@@ -425,10 +455,11 @@ export function createServerInstance(): McpServer {
     // v4.0: Self-Reflection Tool (2026 pattern)
     // ==========================================
 
-    server.tool(
-        "reflect_and_refine",
-        "Self-reflection loop: auto-critique a thought, assess confidence on 4 axes (factual, logical, relevance, novelty), and optionally branch a refined version. Implements DeepSeek-R1 self-verification pattern.",
+    server.registerTool(
+"reflect_and_refine",
         {
+            description: "Self-reflection loop: auto-critique a thought, assess confidence on 4 axes (factual, logical, relevance, novelty), and optionally branch a refined version. Implements DeepSeek-R1 self-verification pattern.",
+            inputSchema: {
             nodeId: z.string().min(1).describe("Node to reflect on"),
             critique: z.string().min(1).max(5000).describe("Your critique of this thought"),
             confidence: z.object({
@@ -440,7 +471,9 @@ export function createServerInstance(): McpServer {
             refinedThought: z.string().max(5000).optional()
                 .describe("If critique reveals a flaw, provide the improved version to auto-branch"),
         },
-        async ({ nodeId, critique, confidence, refinedThought }: { nodeId: string; critique: string; confidence: ConfidenceVector; refinedThought?: string }) => {
+            annotations: { destructiveHint: true }
+        },
+                async ({ nodeId, critique, confidence, refinedThought }: { nodeId: string; critique: string; confidence: ConfidenceVector; refinedThought?: string }) => {
             try {
                 const result = graph.reflectAndRefine(nodeId, critique, confidence, refinedThought);
 
@@ -473,15 +506,18 @@ export function createServerInstance(): McpServer {
     // v4.0: Shared Context Store Tools (CA-MCP)
     // ==========================================
 
-    server.tool(
-        "context_set",
-        "Write a key-value pair to the shared context store. Tracks source provenance for trust scoring. Use this to share intermediate results between reasoning steps.",
+    server.registerTool(
+"context_set",
         {
+            description: "Write a key-value pair to the shared context store. Tracks source provenance for trust scoring. Use this to share intermediate results between reasoning steps.",
+            inputSchema: {
             key: z.string().min(1).max(200).describe("Context key (e.g. 'user_requirements', 'domain_constraints')"),
             value: z.unknown().describe("Any JSON-serializable value"),
             source: z.string().min(1).max(200).describe("Source of this context (e.g. 'propose_thought:node_3', 'user_input')"),
         },
-        async ({ key, value, source }: { key: string; value: unknown; source: string }) => {
+            annotations: { destructiveHint: true }
+        },
+                async ({ key, value, source }: { key: string; value: unknown; source: string }) => {
             contextStore.set(key, value, source);
             return {
                 content: [{ type: "text", text: `Context set: ${key} (source: ${source})` }],
@@ -490,13 +526,16 @@ export function createServerInstance(): McpServer {
         }
     );
 
-    server.tool(
-        "context_get",
-        "Read a value from the shared context store. Returns value + source provenance. Check context before generating redundant thoughts.",
+    server.registerTool(
+"context_get",
         {
+            description: "Read a value from the shared context store. Returns value + source provenance. Check context before generating redundant thoughts.",
+            inputSchema: {
             key: z.string().min(1).describe("Context key to retrieve"),
         },
-        async ({ key }: { key: string }) => {
+            annotations: { destructiveHint: true }
+        },
+                async ({ key }: { key: string }) => {
             const entry = contextStore.getWithProvenance(key);
             if (!entry) {
                 return { content: [{ type: "text", text: `Context key '${key}' not found` }], isError: true };
@@ -508,11 +547,14 @@ export function createServerInstance(): McpServer {
         }
     );
 
-    server.tool(
-        "context_list",
-        "List all keys in the shared context store with their sources. Use to see what knowledge is already available before generating new thoughts.",
-        {},
-        async () => {
+    server.registerTool(
+"context_list",
+        {
+            description: "List all keys in the shared context store with their sources. Use to see what knowledge is already available before generating new thoughts.",
+            inputSchema: {},
+            annotations: { readOnlyHint: true }
+        },
+                async () => {
             const entries = contextStore.list();
             return {
                 content: [{ type: "text", text: entries.length > 0 ? JSON.stringify(entries, null, 2) : "Context store is empty" }],
@@ -525,11 +567,14 @@ export function createServerInstance(): McpServer {
     // v4.0: Reasoning Trace Export
     // ==========================================
 
-    server.tool(
-        "export_reasoning_trace",
-        "Export the current graph's best reasoning path as a structured trace. Compatible with Long CoT format used by DeepSeek-R1 and o3 for RL training and context.",
-        {},
-        async () => {
+    server.registerTool(
+"export_reasoning_trace",
+        {
+            description: "Export the current graph's best reasoning path as a structured trace. Compatible with Long CoT format used by DeepSeek-R1 and o3 for RL training and context.",
+            inputSchema: {},
+            annotations: { readOnlyHint: true }
+        },
+                async () => {
             try {
                 const trace = graph.exportReasoningTrace();
                 return {
