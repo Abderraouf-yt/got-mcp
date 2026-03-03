@@ -1,5 +1,4 @@
 import express from "express";
-import cors from "cors";
 import net from "net";
 import crypto from "crypto";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -48,15 +47,13 @@ export async function startHttpServer(): Promise<net.Server> {
     const port = await findAvailablePort(PREFERRED_PORT);
 
     const app = express();
-    // Allow both the default Vite dev port and any localhost origin for flexibility
-    app.use(cors({
-        origin: [
-            'http://localhost:5173',
-            'http://localhost:5174',
-            'http://127.0.0.1:5173',
-            'http://127.0.0.1:5174',
-        ]
-    }));
+    // Minimal localhost-only CORS (no external dependency needed)
+    app.use((_req, res, next) => {
+        res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+        res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        res.header("Access-Control-Allow-Headers", "Content-Type");
+        next();
+    });
     app.use(express.json());
 
     const activeSessions = new Map<string, SSEServerTransport>();

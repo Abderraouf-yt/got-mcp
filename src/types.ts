@@ -164,3 +164,33 @@ export const RESOURCE_URIS = {
     currentGraph: "@abderraouf-yt/got-mcp://current",
     contextStore: "@abderraouf-yt/got-mcp://context",
 } as const;
+
+/**
+ * Per-iteration log entry for the Controller Loop.
+ */
+export interface IterationLog {
+    iteration: number;
+    nodesScored: number;
+    nodesPruned: number;
+    nodesBranched: number;
+    nodesReflected: number;
+    totalNodes: number;
+    bestPathScore: number;
+    converged: boolean;
+}
+
+/**
+ * Result of a Controller Loop execution.
+ */
+export interface ControllerLoopResult {
+    converged: boolean;
+    iterations: number;
+    winningPath: {
+        pathIds: string[];
+        totalScore: number;
+        conclusion: string;
+    };
+    trace: ReasoningTrace;
+    metrics: GraphMetrics;
+    iterationLog: IterationLog[];
+}

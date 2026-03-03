@@ -107,19 +107,19 @@ export function createServerInstance(): McpServer {
     // 2. Register Tools
 
     server.registerTool(
-"propose_thought",
+        "propose_thought",
         {
             description: "Propose a new unit of reasoning (node) in the thought graph.",
             inputSchema: {
-            thought: z.string().min(1, "Thought content is required").max(5000, "Thought exceeds 5000 chars").describe("The content of the thought"),
-            parentId: z.string().optional().describe("Optional parent node ID if this thought builds on a previous one"),
-            relation: z.enum(["refinement", "contradiction", "support", "branch"])
-                .default("refinement")
-                .describe("How this thought relates to its parent"),
-        },
+                thought: z.string().min(1, "Thought content is required").max(5000, "Thought exceeds 5000 chars").describe("The content of the thought"),
+                parentId: z.string().optional().describe("Optional parent node ID if this thought builds on a previous one"),
+                relation: z.enum(["refinement", "contradiction", "support", "branch"])
+                    .default("refinement")
+                    .describe("How this thought relates to its parent"),
+            },
             annotations: { destructiveHint: true }
         },
-                async ({ thought, parentId, relation }: { thought: string; parentId?: string; relation?: "refinement" | "contradiction" | "support" | "branch" }) => {
+        async ({ thought, parentId, relation }: { thought: string; parentId?: string; relation?: "refinement" | "contradiction" | "support" | "branch" }) => {
             try {
                 const nodeId = graph.addNode(thought);
 
@@ -142,24 +142,24 @@ export function createServerInstance(): McpServer {
     );
 
     server.registerTool(
-"evaluate_thought",
+        "evaluate_thought",
         {
             description: "Assign a score or status to a thought node. If score is omitted, triggers autonomous LLM audit via sampling.",
             inputSchema: {
-            nodeId: z.string().min(1, "Node ID is required").describe("The ID of the node to evaluate"),
-            score: z.number().min(0).max(1).optional().describe("Omit to trigger autonomous LLM audit (0.0 to 1.0)"),
-            status: z.enum(["active", "validated", "rejected", "branching"]).optional().describe("Update the node status"),
-            critique: z.string().max(2000, "Critique exceeds 2000 chars").optional().describe("Reasoning for the evaluation"),
-            confidence: z.object({
-                factual: z.number().min(0).max(1).describe("Grounded in verifiable facts"),
-                logical: z.number().min(0).max(1).describe("Reasoning chain is valid"),
-                relevance: z.number().min(0).max(1).describe("Addresses the problem directly"),
-                novelty: z.number().min(0).max(1).describe("Adds new information"),
-            }).optional().describe("v4.0: Multi-dimensional confidence — if provided, composite score is auto-computed"),
-        },
+                nodeId: z.string().min(1, "Node ID is required").describe("The ID of the node to evaluate"),
+                score: z.number().min(0).max(1).optional().describe("Omit to trigger autonomous LLM audit (0.0 to 1.0)"),
+                status: z.enum(["active", "validated", "rejected", "branching"]).optional().describe("Update the node status"),
+                critique: z.string().max(2000, "Critique exceeds 2000 chars").optional().describe("Reasoning for the evaluation"),
+                confidence: z.object({
+                    factual: z.number().min(0).max(1).describe("Grounded in verifiable facts"),
+                    logical: z.number().min(0).max(1).describe("Reasoning chain is valid"),
+                    relevance: z.number().min(0).max(1).describe("Addresses the problem directly"),
+                    novelty: z.number().min(0).max(1).describe("Adds new information"),
+                }).optional().describe("v4.0: Multi-dimensional confidence — if provided, composite score is auto-computed"),
+            },
             annotations: { destructiveHint: true }
         },
-                async ({ nodeId, score, status, critique, confidence }: { nodeId: string; score?: number; status?: "active" | "validated" | "rejected" | "branching"; critique?: string; confidence?: ConfidenceVector }) => {
+        async ({ nodeId, score, status, critique, confidence }: { nodeId: string; score?: number; status?: "active" | "validated" | "rejected" | "branching"; critique?: string; confidence?: ConfidenceVector }) => {
             try {
                 const node = graph.getNode(nodeId);
                 if (!node) {
@@ -199,13 +199,13 @@ export function createServerInstance(): McpServer {
     );
 
     server.registerTool(
-"get_thought_graph",
+        "get_thought_graph",
         {
             description: "Retrieve the entire current thought graph.",
             inputSchema: {},
             annotations: { readOnlyHint: true }
         },
-                async () => {
+        async () => {
             const graphState = graph.getGraph();
             return {
                 content: [{ type: "text", text: JSON.stringify(graphState, null, 2) }],
@@ -215,13 +215,13 @@ export function createServerInstance(): McpServer {
     );
 
     server.registerTool(
-"reset_graph",
+        "reset_graph",
         {
             description: "Clear the current reasoning session, emptying all nodes and edges.",
             inputSchema: {},
             annotations: { destructiveHint: true }
         },
-                async () => {
+        async () => {
             graph.clear();
             notifyUpdate();
             return {
@@ -234,17 +234,17 @@ export function createServerInstance(): McpServer {
     // 3. GoT Primitives — Aggregate, Prune, Converge
 
     server.registerTool(
-"aggregate_thoughts",
+        "aggregate_thoughts",
         {
             description: "GoT Primitive: Merge 2+ thought nodes into a weighted synthesis. Uses formula: Σ(score×weight)/Σ(weights). Retains full provenance and computes aggregation confidence (1 - stddev).",
             inputSchema: {
-            nodeIds: z.array(z.string()).min(2, "At least 2 node IDs required").describe("Array of node IDs to merge"),
-            synthesis: z.string().min(1, "Synthesis content is required").describe("The merged conclusion that combines insights from all source nodes"),
-            weights: z.array(z.number().min(0).max(1)).optional().describe("Optional per-node weights (defaults to each node's score as its confidence weight)"),
-        },
+                nodeIds: z.array(z.string()).min(2, "At least 2 node IDs required").describe("Array of node IDs to merge"),
+                synthesis: z.string().min(1, "Synthesis content is required").describe("The merged conclusion that combines insights from all source nodes"),
+                weights: z.array(z.number().min(0).max(1)).optional().describe("Optional per-node weights (defaults to each node's score as its confidence weight)"),
+            },
             annotations: { destructiveHint: true }
         },
-                async ({ nodeIds, synthesis, weights }: { nodeIds: string[]; synthesis: string; weights?: number[] }) => {
+        async ({ nodeIds, synthesis, weights }: { nodeIds: string[]; synthesis: string; weights?: number[] }) => {
             try {
                 const newId = graph.aggregateNodes(nodeIds, synthesis, weights);
                 const newNode = graph.getNode(newId);
@@ -269,19 +269,19 @@ export function createServerInstance(): McpServer {
     );
 
     server.registerTool(
-"prune_branch",
+        "prune_branch",
         {
             description: "GoT Primitive: Recursively reject a node and ALL its descendants. Modes: 'hard' (score=0, status=rejected) or 'soft' (score decayed by factor, status preserved). Tracks trigger origin and original scores.",
             inputSchema: {
-            nodeId: z.string().min(1, "Node ID is required").describe("The root node of the branch to prune"),
-            reason: z.string().optional().describe("Why this branch is being pruned"),
-            mode: z.enum(["hard", "soft"]).default("hard").describe("'hard' zeroes scores and rejects; 'soft' decays scores while preserving status"),
-            decayFactor: z.number().min(0).max(1).default(0.5).describe("Score multiplier for soft prune (0.5 = halve scores)"),
-            trigger: z.enum(["manual", "auto"]).default("manual").describe("Whether this prune was triggered manually or by an auto-threshold"),
-        },
+                nodeId: z.string().min(1, "Node ID is required").describe("The root node of the branch to prune"),
+                reason: z.string().optional().describe("Why this branch is being pruned"),
+                mode: z.enum(["hard", "soft"]).default("hard").describe("'hard' zeroes scores and rejects; 'soft' decays scores while preserving status"),
+                decayFactor: z.number().min(0).max(1).default(0.5).describe("Score multiplier for soft prune (0.5 = halve scores)"),
+                trigger: z.enum(["manual", "auto"]).default("manual").describe("Whether this prune was triggered manually or by an auto-threshold"),
+            },
             annotations: { destructiveHint: true }
         },
-                async ({ nodeId, reason, mode, decayFactor, trigger }: { nodeId: string; reason?: string; mode?: "hard" | "soft"; decayFactor?: number; trigger?: "manual" | "auto" }) => {
+        async ({ nodeId, reason, mode, decayFactor, trigger }: { nodeId: string; reason?: string; mode?: "hard" | "soft"; decayFactor?: number; trigger?: "manual" | "auto" }) => {
             try {
                 const result = graph.pruneFromNode(nodeId, reason, { mode, decayFactor, trigger });
 
@@ -303,17 +303,17 @@ export function createServerInstance(): McpServer {
     );
 
     server.registerTool(
-"find_winning_path",
+        "find_winning_path",
         {
             description: "GoT Primitive: Trace the best scoring path(s) from root to leaf. Default: greedy (beamWidth=1). Set beamWidth>1 for k-best beam search. Supports score threshold gating and path length caps.",
             inputSchema: {
-            beamWidth: z.number().int().min(1).max(10).default(1).describe("Number of top paths to track (1=greedy DFS, >1=beam search)"),
-            scoreThreshold: z.number().min(0).max(1).default(0).describe("Minimum node score to include in path (filters low-confidence nodes)"),
-            maxPathLength: z.number().int().min(1).default(50).describe("Maximum path depth to prevent runaway traversal"),
-        },
+                beamWidth: z.number().int().min(1).max(10).default(1).describe("Number of top paths to track (1=greedy DFS, >1=beam search)"),
+                scoreThreshold: z.number().min(0).max(1).default(0).describe("Minimum node score to include in path (filters low-confidence nodes)"),
+                maxPathLength: z.number().int().min(1).default(50).describe("Maximum path depth to prevent runaway traversal"),
+            },
             annotations: { readOnlyHint: true }
         },
-                async ({ beamWidth, scoreThreshold, maxPathLength }: { beamWidth?: number; scoreThreshold?: number; maxPathLength?: number }) => {
+        async ({ beamWidth, scoreThreshold, maxPathLength }: { beamWidth?: number; scoreThreshold?: number; maxPathLength?: number }) => {
             try {
                 const result = graph.findWinningPath({ beamWidth, scoreThreshold, maxPathLength });
 
@@ -353,13 +353,13 @@ export function createServerInstance(): McpServer {
     // 4. Observability — Graph Metrics
 
     server.registerTool(
-"get_graph_metrics",
+        "get_graph_metrics",
         {
             description: "Returns structured observability metrics: node count, edge count, max depth, avg score, prune ratio, status breakdown, and root count. Use this to monitor graph health.",
             inputSchema: {},
             annotations: { readOnlyHint: true }
         },
-                async () => {
+        async () => {
             try {
                 const metrics = graph.getMetrics();
                 const limits = graph.getLimits();
@@ -386,13 +386,13 @@ export function createServerInstance(): McpServer {
     // 5. Replay — Snapshot Export/Restore
 
     server.registerTool(
-"export_snapshot",
+        "export_snapshot",
         {
             description: "Export a full snapshot of the current graph state for replay, recovery, or debugging. Returns all nodes, edges, and counter as a serializable JSON object.",
             inputSchema: {},
             annotations: { readOnlyHint: true }
         },
-                async () => {
+        async () => {
             try {
                 const snapshot = graph.exportSnapshot();
                 return {
@@ -406,32 +406,32 @@ export function createServerInstance(): McpServer {
     );
 
     server.registerTool(
-"restore_snapshot",
+        "restore_snapshot",
         {
             description: "Restore graph state from a previously exported snapshot. Replaces ALL current state. Use for deterministic replay or recovery.",
             inputSchema: {
-            snapshot: z.object({
-                nodes: z.array(z.object({
-                    id: z.string(),
-                    thought: z.string(),
-                    status: z.enum(["active", "validated", "rejected", "branching"]),
-                    score: z.number(),
-                    metadata: z.record(z.string(), z.any()).optional(),
-                    createdAt: z.string(),
-                    updatedAt: z.string()
-                })).describe("Array of ThoughtNode objects"),
-                edges: z.array(z.object({
-                    from: z.string(),
-                    to: z.string(),
-                    relation: z.enum(["refinement", "contradiction", "support", "branch", "aggregation"]),
-                    createdAt: z.string()
-                })).describe("Array of ThoughtEdge objects"),
-                nodeCounter: z.number().int().min(0).describe("The node counter value from the snapshot"),
-            }).describe("A snapshot object previously returned by export_snapshot"),
-        },
+                snapshot: z.object({
+                    nodes: z.array(z.object({
+                        id: z.string(),
+                        thought: z.string(),
+                        status: z.enum(["active", "validated", "rejected", "branching"]),
+                        score: z.number(),
+                        metadata: z.record(z.string(), z.any()).optional(),
+                        createdAt: z.string(),
+                        updatedAt: z.string()
+                    })).describe("Array of ThoughtNode objects"),
+                    edges: z.array(z.object({
+                        from: z.string(),
+                        to: z.string(),
+                        relation: z.enum(["refinement", "contradiction", "support", "branch", "aggregation"]),
+                        createdAt: z.string()
+                    })).describe("Array of ThoughtEdge objects"),
+                    nodeCounter: z.number().int().min(0).describe("The node counter value from the snapshot"),
+                }).describe("A snapshot object previously returned by export_snapshot"),
+            },
             annotations: { destructiveHint: true }
         },
-                async ({ snapshot }: { snapshot: { nodes: any[]; edges: any[]; nodeCounter: number } }) => {
+        async ({ snapshot }: { snapshot: { nodes: any[]; edges: any[]; nodeCounter: number } }) => {
             try {
                 const beforeCount = graph.size;
                 graph.restoreSnapshot(snapshot);
@@ -456,24 +456,24 @@ export function createServerInstance(): McpServer {
     // ==========================================
 
     server.registerTool(
-"reflect_and_refine",
+        "reflect_and_refine",
         {
             description: "Self-reflection loop: auto-critique a thought, assess confidence on 4 axes (factual, logical, relevance, novelty), and optionally branch a refined version. Implements DeepSeek-R1 self-verification pattern.",
             inputSchema: {
-            nodeId: z.string().min(1).describe("Node to reflect on"),
-            critique: z.string().min(1).max(5000).describe("Your critique of this thought"),
-            confidence: z.object({
-                factual: z.number().min(0).max(1).describe("Grounded in verifiable facts (0-1)"),
-                logical: z.number().min(0).max(1).describe("Reasoning chain is valid (0-1)"),
-                relevance: z.number().min(0).max(1).describe("Addresses the problem directly (0-1)"),
-                novelty: z.number().min(0).max(1).describe("Adds new information vs restating (0-1)"),
-            }).describe("Multi-dimensional confidence assessment"),
-            refinedThought: z.string().max(5000).optional()
-                .describe("If critique reveals a flaw, provide the improved version to auto-branch"),
-        },
+                nodeId: z.string().min(1).describe("Node to reflect on"),
+                critique: z.string().min(1).max(5000).describe("Your critique of this thought"),
+                confidence: z.object({
+                    factual: z.number().min(0).max(1).describe("Grounded in verifiable facts (0-1)"),
+                    logical: z.number().min(0).max(1).describe("Reasoning chain is valid (0-1)"),
+                    relevance: z.number().min(0).max(1).describe("Addresses the problem directly (0-1)"),
+                    novelty: z.number().min(0).max(1).describe("Adds new information vs restating (0-1)"),
+                }).describe("Multi-dimensional confidence assessment"),
+                refinedThought: z.string().max(5000).optional()
+                    .describe("If critique reveals a flaw, provide the improved version to auto-branch"),
+            },
             annotations: { destructiveHint: true }
         },
-                async ({ nodeId, critique, confidence, refinedThought }: { nodeId: string; critique: string; confidence: ConfidenceVector; refinedThought?: string }) => {
+        async ({ nodeId, critique, confidence, refinedThought }: { nodeId: string; critique: string; confidence: ConfidenceVector; refinedThought?: string }) => {
             try {
                 const result = graph.reflectAndRefine(nodeId, critique, confidence, refinedThought);
 
@@ -507,17 +507,17 @@ export function createServerInstance(): McpServer {
     // ==========================================
 
     server.registerTool(
-"context_set",
+        "context_set",
         {
             description: "Write a key-value pair to the shared context store. Tracks source provenance for trust scoring. Use this to share intermediate results between reasoning steps.",
             inputSchema: {
-            key: z.string().min(1).max(200).describe("Context key (e.g. 'user_requirements', 'domain_constraints')"),
-            value: z.unknown().describe("Any JSON-serializable value"),
-            source: z.string().min(1).max(200).describe("Source of this context (e.g. 'propose_thought:node_3', 'user_input')"),
-        },
+                key: z.string().min(1).max(200).describe("Context key (e.g. 'user_requirements', 'domain_constraints')"),
+                value: z.unknown().describe("Any JSON-serializable value"),
+                source: z.string().min(1).max(200).describe("Source of this context (e.g. 'propose_thought:node_3', 'user_input')"),
+            },
             annotations: { destructiveHint: true }
         },
-                async ({ key, value, source }: { key: string; value: unknown; source: string }) => {
+        async ({ key, value, source }: { key: string; value: unknown; source: string }) => {
             contextStore.set(key, value, source);
             return {
                 content: [{ type: "text", text: `Context set: ${key} (source: ${source})` }],
@@ -527,15 +527,15 @@ export function createServerInstance(): McpServer {
     );
 
     server.registerTool(
-"context_get",
+        "context_get",
         {
             description: "Read a value from the shared context store. Returns value + source provenance. Check context before generating redundant thoughts.",
             inputSchema: {
-            key: z.string().min(1).describe("Context key to retrieve"),
-        },
+                key: z.string().min(1).describe("Context key to retrieve"),
+            },
             annotations: { destructiveHint: true }
         },
-                async ({ key }: { key: string }) => {
+        async ({ key }: { key: string }) => {
             const entry = contextStore.getWithProvenance(key);
             if (!entry) {
                 return { content: [{ type: "text", text: `Context key '${key}' not found` }], isError: true };
@@ -548,13 +548,13 @@ export function createServerInstance(): McpServer {
     );
 
     server.registerTool(
-"context_list",
+        "context_list",
         {
             description: "List all keys in the shared context store with their sources. Use to see what knowledge is already available before generating new thoughts.",
             inputSchema: {},
             annotations: { readOnlyHint: true }
         },
-                async () => {
+        async () => {
             const entries = contextStore.list();
             return {
                 content: [{ type: "text", text: entries.length > 0 ? JSON.stringify(entries, null, 2) : "Context store is empty" }],
@@ -568,18 +568,72 @@ export function createServerInstance(): McpServer {
     // ==========================================
 
     server.registerTool(
-"export_reasoning_trace",
+        "export_reasoning_trace",
         {
             description: "Export the current graph's best reasoning path as a structured trace. Compatible with Long CoT format used by DeepSeek-R1 and o3 for RL training and context.",
             inputSchema: {},
             annotations: { readOnlyHint: true }
         },
-                async () => {
+        async () => {
             try {
                 const trace = graph.exportReasoningTrace();
                 return {
                     content: [{ type: "text", text: JSON.stringify(trace, null, 2) }],
                     structuredContent: trace as unknown as Record<string, unknown>,
+                };
+            } catch (err) {
+                return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+            }
+        }
+    );
+
+    // ==========================================
+    // v4.0: Controller Loop — Autonomous GoT Orchestrator
+    // ==========================================
+
+    server.registerTool(
+        "run_controller_loop",
+        {
+            description: "Autonomous GoT Controller Loop: Seeds a graph with a prompt + initial thoughts, then iteratively evaluates, branches, reflects, prunes, and converges until a winning path emerges or the iteration budget is exhausted. Returns the winning conclusion, full reasoning trace, and per-iteration metrics.",
+            inputSchema: {
+                prompt: z.string().min(1).max(5000).describe("The reasoning question or problem statement"),
+                thoughts: z.array(z.string().min(1).max(5000)).min(1).max(10).describe("Initial thought branches to explore (1-10)"),
+                maxIterations: z.number().int().min(1).max(20).default(5).describe("Maximum reasoning cycles (default: 5)"),
+                convergenceThreshold: z.number().min(0).max(1).default(0.85).describe("Stop when best path average score exceeds this (default: 0.85)"),
+                autoPruneBelow: z.number().min(0).max(1).default(0.3).describe("Auto soft-prune branches scoring below this (default: 0.3)"),
+                beamWidth: z.number().int().min(1).max(10).default(2).describe("Number of top paths to track during convergence (default: 2)"),
+            },
+            annotations: { destructiveHint: true }
+        },
+        async ({ prompt, thoughts, maxIterations, convergenceThreshold, autoPruneBelow, beamWidth }: {
+            prompt: string;
+            thoughts: string[];
+            maxIterations?: number;
+            convergenceThreshold?: number;
+            autoPruneBelow?: number;
+            beamWidth?: number;
+        }) => {
+            try {
+                const result = graph.runControllerLoop(prompt, thoughts, {
+                    maxIterations,
+                    convergenceThreshold,
+                    autoPruneBelow,
+                    beamWidth,
+                });
+
+                notifyUpdate();
+
+                const summary = [
+                    `Controller Loop ${result.converged ? "CONVERGED" : "EXHAUSTED"} after ${result.iterations} iterations.`,
+                    `Winning path: ${result.winningPath.pathIds.join(" → ")} (score: ${result.winningPath.totalScore})`,
+                    `Conclusion: "${result.winningPath.conclusion.substring(0, 200)}"`,
+                    `Graph: ${result.metrics.nodeCount} nodes, ${result.metrics.edgeCount} edges`,
+                    `Prune ratio: ${Math.round(result.metrics.pruneRatio * 100)}%`,
+                ].join("\n");
+
+                return {
+                    content: [{ type: "text", text: summary }],
+                    structuredContent: result as unknown as Record<string, unknown>,
                 };
             } catch (err) {
                 return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };

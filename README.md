@@ -13,16 +13,14 @@
   <a href="https://github.com/Abderraouf-yt/got-mcp"><img src="https://img.shields.io/github/stars/Abderraouf-yt/got-mcp?style=flat-square&color=ff00ff&label=stars" alt="GitHub stars" /></a>
   <a href="#"><img src="https://img.shields.io/badge/node-%3E%3D20-00e5ff?style=flat-square" alt="Node.js" /></a>
   <a href="#"><img src="https://img.shields.io/badge/MCP-1.26+-ff00ff?style=flat-square" alt="MCP SDK" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/tools-10-00ff88?style=flat-square" alt="Tools" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/tools-15-00ff88?style=flat-square" alt="Tools" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="License" /></a>
-  <a href="https://got-mcp-visualizer.netlify.app"><img src="https://img.shields.io/badge/demo-live-00e5ff?style=flat-square&logo=netlify" alt="Live Demo" /></a>
   <a href="https://arxiv.org/abs/2308.09687"><img src="https://img.shields.io/badge/GoT-Besta%20et%20al.%202023-ff6b6b?style=flat-square" alt="GoT Paper" /></a>
 </p>
 
 <p align="center">
   <a href="#-quick-start">⚡ Quick Start</a> •
-  <a href="https://got-mcp-visualizer.netlify.app">� Live Demo</a> •
-  <a href="#-tools-10">🛠 Tools</a> •
+  <a href="#-tools-15">🛠 Tools</a> •
   <a href="#-how-it-thinks">🧬 How It Thinks</a> •
   <a href="#-governance">🔒 Governance</a> •
   <a href="#-visualizer">📊 Visualizer</a>
@@ -152,7 +150,7 @@ The demo state ships with the repo in `docs/assets/demo-state.json`.
 
 ---
 
-## 🛠 Tools (10)
+## 🛠 Tools (15)
 
 <table>
 <tr><th>Tool</th><th>What it does</th><th>Category</th></tr>
@@ -166,11 +164,16 @@ The demo state ships with the repo in `docs/assets/demo-state.json`.
 <tr><td><code>get_graph_metrics</code></td><td>Node count, max depth, prune ratio, avg score, status breakdown</td><td>📊 Ops</td></tr>
 <tr><td><code>export_snapshot</code></td><td>Full graph serialization for replay/recovery</td><td>🔁 Replay</td></tr>
 <tr><td><code>restore_snapshot</code></td><td>Restore from previously exported snapshot</td><td>🔁 Replay</td></tr>
+<tr><td><code>reflect_and_refine</code></td><td>Self-reflection: 4-axis confidence + auto-critique + branch</td><td>🔬 v4.0</td></tr>
+<tr><td><code>context_set</code></td><td>Write key-value to shared context store with provenance</td><td>📦 v4.0</td></tr>
+<tr><td><code>context_get</code></td><td>Read value + source from shared context store</td><td>📦 v4.0</td></tr>
+<tr><td><code>context_list</code></td><td>List all context store entries and their sources</td><td>📦 v4.0</td></tr>
+<tr><td><code>export_reasoning_trace</code></td><td>Export winning path as Long CoT trace (DeepSeek-R1/o3 format)</td><td>📤 v4.0</td></tr>
 </table>
 
 ### Edge Relations
 
-`refinement` · `contradiction` · `support` · `branch` · `aggregation`
+`refinement` · `contradiction` · `support` · `branch` · `aggregation` · `reflection`
 
 ### Node Statuses
 
@@ -313,7 +316,9 @@ Based on [Besta et al., 2023 — "Graph of Thoughts"](https://arxiv.org/abs/2308
 | **Converge** | `find_winning_path` — beam search | v3.0 |
 | **Governance** | Engine-level guards + session isolation | v3.0 |
 | **Replay** | `export_snapshot` / `restore_snapshot` | v3.0 |
-| Volume Control | Roadmap | — |
+| **Self-Reflect** | `reflect_and_refine` — 4-axis confidence | v4.0 |
+| **Context Store** | `context_set` / `context_get` / `context_list` | v4.0 |
+| **Reasoning Trace** | `export_reasoning_trace` — Long CoT export | v4.0 |
 | Controller Loop | Roadmap | — |
 
 ---
@@ -338,13 +343,17 @@ thought-graph/
 ├── src/
 │   ├── index.ts              # Bootstrap (Stdio + HTTP)
 │   ├── server/
-│   │   ├── mcp.ts            # 10 MCP tool registrations
-│   │   └── http.ts           # Express bridge + SSE
+│   │   ├── mcp.ts            # 15 MCP tool registrations
+│   │   └── http.ts           # Express bridge (minimal inline CORS)
 │   ├── graph/
 │   │   ├── ThoughtGraph.ts   # Core DAG engine + governance
 │   │   └── index.ts          # Session registry exports
-│   └── types.ts              # GraphLimits, SessionContext, GraphMetrics
-├── visualizer/               # React + Vite dashboard
+│   ├── context/
+│   │   ├── ContextStore.ts   # Shared context store (CA-MCP)
+│   │   └── index.ts          # Context singleton export
+│   └── types.ts              # GraphLimits, ConfidenceVector, ReasoningTrace
+├── visualizer/               # React + Vite dashboard (local only)
+├── evaluations/              # XML evaluation framework
 ├── tests/                    # Unit tests
 ├── docs/assets/              # Demo screenshots & state
 └── dist/                     # Compiled output

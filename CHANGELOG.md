@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-03-03
+
+### Added
+- **Self-Reflection**: `reflect_and_refine` tool — auto-critique with 4-axis confidence vectors (factual, logical, relevance, novelty) and auto-branching when score < 0.7.
+- **Context Store (CA-MCP)**: `context_set`, `context_get`, `context_list` tools — shared key-value store with source provenance tracking for cross-step knowledge sharing.
+- **Reasoning Trace Export**: `export_reasoning_trace` tool — exports the winning path as a structured Long CoT trace compatible with DeepSeek-R1 and o3 RL formats.
+- **New Edge Relation**: `reflection` type for self-critique edges.
+- **New Resource**: `@abderraouf-yt/got-mcp://context` — live context store state.
+
+### Removed
+- **CORS dependency**: Removed `cors` and `@types/cors` npm packages. Replaced with a 3-line inline localhost middleware — zero external dependencies for cross-origin handling.
+
+### Changed
+- **Tool count**: 10 → **15 tools** total.
+- **Version**: Bumped `SERVER_CONFIG.version` and `package.json` to `4.0.0`.
+
 ## [3.2.1] - 2026-03-01
 
 ### Fixed

@@ -19,6 +19,8 @@ import type {
     ConfidenceVector,
     ReasoningStep,
     ReasoningTrace,
+    ControllerLoopResult,
+    IterationLog,
 } from "../types.js";
 import { DEFAULT_GRAPH_LIMITS } from "../types.js";
 
@@ -944,6 +946,228 @@ export class ThoughtGraph {
             totalEdges: this.edges.length,
             exportedAt: new Date().toISOString(),
         };
+    }
+
+    // ==========================================
+    // v4.0: CONTROLLER LOOP — Autonomous GoT Cycle
+    // ==========================================
+
+    /**
+     * Controller Loop: Autonomous Graph of Thoughts reasoning cycle.
+     *
+     * Orchestrates the full GoT pipeline on a given prompt:
+     *   1. GENERATE — propose initial thoughts from the prompt
+     *   2. EVALUATE — score each active leaf using confidence vectors
+     *   3. BRANCH — create alternatives for mid-scoring thoughts
+     *   4. REFLECT — auto-critique top candidates via reflectAndRefine
+     *   5. PRUNE — remove branches below autoPruneBelow threshold
+     *   6. CONVERGE — find the winning path via beam search
+     *
+     * Governance:
+     *   - maxIterations caps the number of generate→evaluate→prune cycles
+     *   - convergenceThreshold stops early when the best path score exceeds it
+     *   - autoPruneBelow automatically soft-prunes low-scoring branches
+     *   - All existing graph limits (node cap, depth cap, etc.) still apply
+     *
+     * @param prompt - The reasoning question or problem statement
+     * @param thoughts - Array of initial thought branches to explore
+     * @param options - Controller loop configuration
+     * @returns The final winning path, reasoning trace, and iteration metrics
+     */
+    runControllerLoop(
+        prompt: string,
+        thoughts: string[],
+        options?: {
+            maxIterations?: number;
+            convergenceThreshold?: number;
+            autoPruneBelow?: number;
+            beamWidth?: number;
+        }
+    ): ControllerLoopResult {
+        const maxIterations = options?.maxIterations ?? 5;
+        const convergenceThreshold = options?.convergenceThreshold ?? 0.85;
+        const autoPruneBelow = options?.autoPruneBelow ?? 0.3;
+        const beamWidth = options?.beamWidth ?? 2;
+
+        const iterationLog: IterationLog[] = [];
+
+        // Step 1: GENERATE — seed the graph with the prompt + initial thoughts
+        const rootId = this.addNode(prompt);
+        this.updateNode(rootId, { score: 0.5, status: "active" });
+
+        for (const thought of thoughts) {
+            const childId = this.addNode(thought);
+            this.addEdge(rootId, childId, "branch");
+            this.updateNode(childId, { score: 0.5, status: "active" });
+        }
+
+        let converged = false;
+        let iteration = 0;
+
+        // Step 2-6: Iterate until convergence or budget exhausted
+        while (iteration < maxIterations && !converged) {
+            iteration++;
+
+            // --- EVALUATE: score all active leaf nodes ---
+            const activeLeaves = this.getActiveLeaves();
+            let scored = 0;
+            let pruned = 0;
+            let branched = 0;
+            let reflected = 0;
+
+            for (const leaf of activeLeaves) {
+                // Auto-score based on thought quality heuristics:
+                // - Length factor: longer = more detailed (diminishing returns)
+                // - Depth factor: deeper = more refined thinking
+                // - Specificity: presence of numbers, comparisons, evidence markers
+                const depth = this.getNodeDepth(leaf.id);
+                const lengthScore = Math.min(leaf.thought.length / 500, 1.0);
+                const depthBonus = Math.min(depth * 0.05, 0.2);
+                const specificity = this.estimateSpecificity(leaf.thought);
+
+                const autoScore = Math.min(
+                    Math.round((lengthScore * 0.3 + depthBonus + specificity * 0.5) * 100) / 100,
+                    1.0
+                );
+
+                this.updateNode(leaf.id, {
+                    score: autoScore,
+                    status: autoScore >= convergenceThreshold ? "validated" : "active",
+                });
+                scored++;
+            }
+
+            // --- PRUNE: remove low-scoring branches ---
+            const lowScorers = Array.from(this.nodes.values())
+                .filter(n => n.status === "active" && n.score < autoPruneBelow && n.score > 0);
+
+            for (const weak of lowScorers) {
+                try {
+                    const result = this.pruneFromNode(weak.id, `Auto-pruned: score ${weak.score} < ${autoPruneBelow}`, {
+                        mode: "soft",
+                        decayFactor: 0.3,
+                        trigger: "auto",
+                    });
+                    pruned += result.pruned.length;
+                } catch {
+                    // Skip if prune fails (e.g. cascade limit)
+                }
+            }
+
+            // --- BRANCH: create alternatives for mid-tier thoughts ---
+            const midTier = Array.from(this.nodes.values())
+                .filter(n => n.status === "active" && n.score >= autoPruneBelow && n.score < convergenceThreshold);
+
+            for (const mid of midTier.slice(0, 3)) { // Limit branching to top 3
+                const existingChildren = this.edges.filter(e => e.from === mid.id).length;
+                if (existingChildren < this.limits.maxBranchFactor && this.nodes.size < this.limits.maxNodes - 5) {
+                    try {
+                        const altId = this.addNode(`[Alternative] What if we reconsider: ${mid.thought.substring(0, 200)}...`);
+                        this.addEdge(mid.id, altId, "branch");
+                        this.updateNode(altId, { score: 0.5, status: "active" });
+                        branched++;
+                    } catch {
+                        // Skip if limits hit
+                    }
+                }
+            }
+
+            // --- REFLECT: critique the best candidates ---
+            const topCandidates = Array.from(this.nodes.values())
+                .filter(n => n.status !== "rejected" && n.score >= 0.5)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 2);
+
+            for (const top of topCandidates) {
+                try {
+                    const confidence: ConfidenceVector = {
+                        factual: Math.min(top.score + 0.1, 1),
+                        logical: Math.min(top.score + 0.05, 1),
+                        relevance: Math.min(top.score + 0.15, 1),
+                        novelty: Math.max(top.score - 0.1, 0),
+                    };
+                    this.reflectAndRefine(
+                        top.id,
+                        `Iteration ${iteration} auto-reflection: evaluating strength of reasoning.`,
+                        confidence
+                    );
+                    reflected++;
+                } catch {
+                    // Skip if reflection fails
+                }
+            }
+
+            // --- CONVERGE CHECK ---
+            const winningPath = this.findWinningPath({ beamWidth, scoreThreshold: autoPruneBelow });
+            const avgPathScore = winningPath.path.length > 0
+                ? winningPath.totalScore / winningPath.path.length
+                : 0;
+
+            iterationLog.push({
+                iteration,
+                nodesScored: scored,
+                nodesPruned: pruned,
+                nodesBranched: branched,
+                nodesReflected: reflected,
+                totalNodes: this.nodes.size,
+                bestPathScore: Math.round(avgPathScore * 100) / 100,
+                converged: avgPathScore >= convergenceThreshold,
+            });
+
+            if (avgPathScore >= convergenceThreshold) {
+                converged = true;
+            }
+        }
+
+        // Final convergence
+        const finalPath = this.findWinningPath({ beamWidth, scoreThreshold: 0 });
+        const trace = this.exportReasoningTrace();
+        const metrics = this.getMetrics();
+
+        this.stateVersion++;
+        this.save();
+
+        return {
+            converged,
+            iterations: iteration,
+            winningPath: {
+                pathIds: finalPath.pathIds,
+                totalScore: finalPath.totalScore,
+                conclusion: finalPath.path.length > 0
+                    ? finalPath.path[finalPath.path.length - 1].thought
+                    : "No conclusion reached",
+            },
+            trace,
+            metrics,
+            iterationLog,
+        };
+    }
+
+    /**
+     * Get active leaf nodes (nodes with no outgoing edges that aren't rejected).
+     */
+    private getActiveLeaves(): ThoughtNode[] {
+        const nodesWithOutgoing = new Set(this.edges.map(e => e.from));
+        return Array.from(this.nodes.values())
+            .filter(n => !nodesWithOutgoing.has(n.id) && n.status !== "rejected");
+    }
+
+    /**
+     * Estimate the specificity of a thought based on content heuristics.
+     * Higher specificity = more concrete, evidence-based reasoning.
+     */
+    private estimateSpecificity(thought: string): number {
+        let score = 0.3; // Base score
+
+        // Indicators of specific, evidence-based thinking
+        if (/\d+/.test(thought)) score += 0.1;           // Contains numbers
+        if (/vs\.?|versus|compared|better|worse/i.test(thought)) score += 0.1; // Comparisons
+        if (/because|since|therefore|thus|hence/i.test(thought)) score += 0.1; // Causal reasoning
+        if (/however|but|although|despite/i.test(thought)) score += 0.1;       // Nuance
+        if (/example|specifically|for instance/i.test(thought)) score += 0.1;  // Concreteness
+        if (/\b(data|evidence|research|study|benchmark)\b/i.test(thought)) score += 0.1; // Evidence
+
+        return Math.min(score, 1.0);
     }
 }
 
