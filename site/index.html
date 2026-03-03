@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoT MCP — Graph of Thoughts Reasoning Engine for AI Agents</title>
+  <meta name="description" content="The only MCP server with autonomous Graph of Thoughts reasoning. 16 tools. Self-reflection. Controller Loop. Give your AI agent structured, auditable thinking.">
+  <meta property="og:title" content="GoT MCP — Graph of Thoughts for AI Agents">
+  <meta property="og:description" content="16-tool MCP server with autonomous reasoning, self-reflection, and convergence. Open source.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://got-mcp.netlify.app">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">🧠 <span>GoT</span> MCP</a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how-it-works">How It Works</a></li>
+        <li><a href="#install">Install</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="https://github.com/Abderraouf-yt/got-mcp" target="_blank">GitHub</a></li>
+        <li><a href="https://www.npmjs.com/package/@abderraouf-yt/got-mcp" class="nav-cta">npm ↗</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-text">
+        <div class="hero-badge">v4.0 — Controller Loop is here</div>
+        <h1>
+          Your AI Agent<br>
+          Deserves <span class="gradient-text">Better Thinking</span>
+        </h1>
+        <p class="hero-subtitle">
+          The only MCP server that gives AI agents non-linear reasoning — branch, contradict, prune dead ends, and converge on the winning path. Autonomously.
+        </p>
+        <div class="hero-actions">
+          <a href="#install" class="btn-primary">⚡ Get Started</a>
+          <a href="https://github.com/Abderraouf-yt/got-mcp" target="_blank" class="btn-secondary">★ Star on GitHub</a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="graph-container" id="hero-graph">
+          <svg class="graph-edges" id="graph-edges"></svg>
+          <!-- Nodes populated by JS -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <div class="stats-bar reveal">
+    <div class="stats-inner">
+      <div class="stat-item">
+        <div class="stat-number">16</div>
+        <div class="stat-label">MCP Tools</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">v4.0</div>
+        <div class="stat-label">Latest Release</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">0</div>
+        <div class="stat-label">External CORS Deps</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">∞</div>
+        <div class="stat-label">Reasoning Depth</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <section id="features">
+    <div class="section-header reveal">
+      <div class="section-tag">// capabilities</div>
+      <h2 class="section-title">16 Tools. One Engine.</h2>
+      <p class="section-desc">From basic thought proposals to autonomous reasoning loops — every primitive from the Graph of Thoughts paper, implemented and production-ready.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon core">🧠</div>
+        <div class="feature-name">propose_thought</div>
+        <div class="feature-desc">Seed reasoning nodes with parent relations. Branch, refine, contradict, or support.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon core">⚖️</div>
+        <div class="feature-name">evaluate_thought</div>
+        <div class="feature-desc">Score 0.0–1.0, add critique, or omit score to trigger autonomous LLM audit via sampling.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon got">⚡</div>
+        <div class="feature-name">aggregate_thoughts</div>
+        <div class="feature-desc">Merge 2+ nodes via Σ(score×weight)/Σ(weights). Retains full provenance chain.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon got">✂️</div>
+        <div class="feature-name">prune_branch</div>
+        <div class="feature-desc">Hard or soft prune. BFS cascade with decay factors. Auto or manual trigger tracking.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon got">🎯</div>
+        <div class="feature-name">find_winning_path</div>
+        <div class="feature-desc">Greedy DFS or k-best beam search with score thresholds and path length caps.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon v4">🔬</div>
+        <div class="feature-name">reflect_and_refine</div>
+        <div class="feature-desc">4-axis confidence vectors (factual, logical, relevance, novelty). Auto-branch on low scores.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon v4">📦</div>
+        <div class="feature-name">context_set / get / list</div>
+        <div class="feature-desc">Shared context store with source provenance. CA-MCP pattern for cross-step knowledge.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon v4">📤</div>
+        <div class="feature-name">export_reasoning_trace</div>
+        <div class="feature-desc">Long CoT format compatible with DeepSeek-R1 and o3 RL training pipelines.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon v4" style="background: rgba(255, 215, 0, 0.15);">🔄</div>
+        <div class="feature-name">run_controller_loop</div>
+        <div class="feature-desc">Autonomous GoT orchestrator. Generate → Evaluate → Branch → Reflect → Prune → Converge. One call.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section id="how-it-works">
+    <div class="section-header reveal">
+      <div class="section-tag">// the loop</div>
+      <h2 class="section-title">How the Controller Loop Thinks</h2>
+      <p class="section-desc">One tool call. The server handles the rest — iterating until convergence or budget exhaustion.</p>
+    </div>
+
+    <div class="pipeline reveal">
+      <div class="pipeline-step">
+        <div class="pipeline-icon">💡</div>
+        <div class="pipeline-label">Generate</div>
+        <div class="pipeline-desc">Seed initial thoughts</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">⚖️</div>
+        <div class="pipeline-label">Evaluate</div>
+        <div class="pipeline-desc">Score confidence</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">🌿</div>
+        <div class="pipeline-label">Branch</div>
+        <div class="pipeline-desc">Explore alternatives</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">🔬</div>
+        <div class="pipeline-label">Reflect</div>
+        <div class="pipeline-desc">Self-critique</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">✂️</div>
+        <div class="pipeline-label">Prune</div>
+        <div class="pipeline-desc">Cut weak paths</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">🏆</div>
+        <div class="pipeline-label">Converge</div>
+        <div class="pipeline-desc">Best path wins</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install -->
+  <section id="install">
+    <div class="section-header reveal">
+      <div class="section-tag">// get started</div>
+      <h2 class="section-title">Running in 30 Seconds</h2>
+      <p class="section-desc">Add to your IDE's MCP config and start reasoning.</p>
+    </div>
+
+    <div class="install-box reveal">
+      <div class="install-header">
+        <div class="install-dot"></div>
+        <div class="install-dot"></div>
+        <div class="install-dot"></div>
+        <span class="install-title">~/.gemini/settings.json</span>
+      </div>
+      <div class="install-code">
+        <span class="comment">// Add to your MCP configuration</span><br>
+        {<br>
+        &nbsp;&nbsp;<span class="key">"mcpServers"</span>: {<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"got-mcp"</span>: {<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"command"</span>: <span class="str">"npx"</span>,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"args"</span>: [<span class="str">"-y"</span>, <span class="str">"@abderraouf-yt/got-mcp"</span>]<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+        &nbsp;&nbsp;}<br>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="pricing">
+    <div class="section-header reveal">
+      <div class="section-tag">// plans</div>
+      <h2 class="section-title">Start Free. Scale When Ready.</h2>
+      <p class="section-desc">Open source at heart. Premium features for serious teams.</p>
+    </div>
+
+    <div class="pricing-grid reveal">
+      <div class="price-card">
+        <div class="price-tier">Open Source</div>
+        <div class="price-amount">$0</div>
+        <p class="price-desc">Full MCP server, forever free.</p>
+        <ul class="price-features">
+          <li>All 16 MCP tools</li>
+          <li>Controller Loop</li>
+          <li>200 node graph limit</li>
+          <li>Local stdio transport</li>
+          <li>JSON file persistence</li>
+          <li>Community support</li>
+        </ul>
+        <a href="https://www.npmjs.com/package/@abderraouf-yt/got-mcp" class="price-btn outline">Install Free</a>
+      </div>
+      <div class="price-card featured">
+        <div class="price-tier">Pro</div>
+        <div class="price-amount">$29<span>/mo</span></div>
+        <p class="price-desc">For developers building AI products.</p>
+        <ul class="price-features">
+          <li>Everything in Free</li>
+          <li>1,000 node graph limit</li>
+          <li>Hosted HTTP API</li>
+          <li>Multi-session isolation</li>
+          <li>Webhook notifications</li>
+          <li>Priority support</li>
+        </ul>
+        <button class="price-btn primary">Coming Soon</button>
+      </div>
+      <div class="price-card">
+        <div class="price-tier">Enterprise</div>
+        <div class="price-amount">Custom</div>
+        <p class="price-desc">For teams at scale.</p>
+        <ul class="price-features">
+          <li>Everything in Pro</li>
+          <li>Unlimited nodes</li>
+          <li>SSO / SAML</li>
+          <li>Audit logging</li>
+          <li>Custom governance</li>
+          <li>Dedicated support + SLA</li>
+        </ul>
+        <a href="mailto:contact@abderraouf.dev" class="price-btn outline">Contact Sales</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="https://github.com/Abderraouf-yt/got-mcp" target="_blank">GitHub</a>
+      <a href="https://www.npmjs.com/package/@abderraouf-yt/got-mcp" target="_blank">npm</a>
+      <a href="https://github.com/Abderraouf-yt/got-mcp/blob/main/CHANGELOG.md" target="_blank">Changelog</a>
+      <a href="https://github.com/Abderraouf-yt/got-mcp/blob/main/CONTRIBUTING.md" target="_blank">Contributing</a>
+      <a href="https://github.com/Abderraouf-yt/got-mcp/blob/main/LICENSE" target="_blank">License</a>
+    </div>
+    <p class="footer-copy">
+      Built by <a href="https://github.com/Abderraouf-yt" target="_blank">@Abderraouf-yt</a> · MIT License · v4.0.0
+    </p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
