@@ -13,14 +13,14 @@
   <a href="https://github.com/Abderraouf-yt/got-mcp"><img src="https://img.shields.io/github/stars/Abderraouf-yt/got-mcp?style=flat-square&color=ff00ff&label=stars" alt="GitHub stars" /></a>
   <a href="#"><img src="https://img.shields.io/badge/node-%3E%3D20-00e5ff?style=flat-square" alt="Node.js" /></a>
   <a href="#"><img src="https://img.shields.io/badge/MCP-1.26+-ff00ff?style=flat-square" alt="MCP SDK" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/tools-15-00ff88?style=flat-square" alt="Tools" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/tools-16-00ff88?style=flat-square" alt="Tools" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="License" /></a>
   <a href="https://arxiv.org/abs/2308.09687"><img src="https://img.shields.io/badge/GoT-Besta%20et%20al.%202023-ff6b6b?style=flat-square" alt="GoT Paper" /></a>
 </p>
 
 <p align="center">
   <a href="#-quick-start">⚡ Quick Start</a> •
-  <a href="#-tools-15">🛠 Tools</a> •
+  <a href="#-tools-16">🛠 Tools</a> •
   <a href="#-how-it-thinks">🧬 How It Thinks</a> •
   <a href="#-governance">🔒 Governance</a> •
   <a href="#-visualizer">📊 Visualizer</a>
@@ -150,7 +150,7 @@ The demo state ships with the repo in `docs/assets/demo-state.json`.
 
 ---
 
-## 🛠 Tools (15)
+## 🛠 Tools (16)
 
 <table>
 <tr><th>Tool</th><th>What it does</th><th>Category</th></tr>
@@ -169,6 +169,7 @@ The demo state ships with the repo in `docs/assets/demo-state.json`.
 <tr><td><code>context_get</code></td><td>Read value + source from shared context store</td><td>📦 v4.0</td></tr>
 <tr><td><code>context_list</code></td><td>List all context store entries and their sources</td><td>📦 v4.0</td></tr>
 <tr><td><code>export_reasoning_trace</code></td><td>Export winning path as Long CoT trace (DeepSeek-R1/o3 format)</td><td>📤 v4.0</td></tr>
+<tr><td><code>run_controller_loop</code></td><td>Autonomous GoT orchestrator: seed → evaluate → branch → reflect → prune → converge</td><td>🔄 v4.0</td></tr>
 </table>
 
 ### Edge Relations
@@ -319,7 +320,7 @@ Based on [Besta et al., 2023 — "Graph of Thoughts"](https://arxiv.org/abs/2308
 | **Self-Reflect** | `reflect_and_refine` — 4-axis confidence | v4.0 |
 | **Context Store** | `context_set` / `context_get` / `context_list` | v4.0 |
 | **Reasoning Trace** | `export_reasoning_trace` — Long CoT export | v4.0 |
-| Controller Loop | Roadmap | — |
+| **Controller Loop** | `run_controller_loop` — autonomous orchestrator | v4.0 |
 
 ---
 
@@ -343,7 +344,7 @@ thought-graph/
 ├── src/
 │   ├── index.ts              # Bootstrap (Stdio + HTTP)
 │   ├── server/
-│   │   ├── mcp.ts            # 15 MCP tool registrations
+│   │   ├── mcp.ts            # 16 MCP tool registrations
 │   │   └── http.ts           # Express bridge (minimal inline CORS)
 │   ├── graph/
 │   │   ├── ThoughtGraph.ts   # Core DAG engine + governance

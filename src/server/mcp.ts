@@ -166,7 +166,12 @@ export function createServerInstance(): McpServer {
                     return { content: [{ type: "text", text: `Error: Node '${nodeId}' not found` }], isError: true };
                 }
 
-                if (score === undefined) {
+                // v4.0: if confidence provided, compute composite score automatically
+                const finalScore = confidence
+                    ? graph.computeCompositeScore(confidence)
+                    : score;
+
+                if (finalScore === undefined) {
                     const auditResult = await triggerAutonomousAudit(server, node, graph);
                     notifyUpdate();
                     return {
@@ -174,11 +179,6 @@ export function createServerInstance(): McpServer {
                         structuredContent: { nodeId, audited: true, message: auditResult }
                     };
                 }
-
-                // v4.0: if confidence provided, compute composite score automatically
-                const finalScore = confidence
-                    ? graph.computeCompositeScore(confidence)
-                    : score;
 
                 graph.updateNode(nodeId, {
                     score: finalScore,

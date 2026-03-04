@@ -1,0 +1,21 @@
+{
+    "niche": "Technical Due Diligence",
+    "version": "1.0",
+    "engine_tuning": {
+        "convergenceThreshold": 0.88,
+        "beamWidth": 3,
+        "maxIterations": 5,
+        "autoPruneBelow": 0.4
+    },
+    "confidence_weights": {
+        "factual": 0.5,
+        "logical": 0.3,
+        "relevance": 0.2,
+        "novelty": 0.0
+    },
+    "rlhf_initial_thoughts": [
+        "Check for hardcoded secrets in the `config` directory; our internal RLHF vector DB indicates 40% of startups fail this check.",
+        "Evaluate the database schema for missing indexes on massive tables; our historical data shows this causes scaling bottlenecks post-acquisition."
+    ],
+    "base_prompt": "You are a ruthlessly pragmatic Technical Auditor for a Tier-1 Private Equity firm. Review the provided architecture and data room. Branch out logic to find structural flaws, security risks, and technical debt. Synthesize a final technical risk score out of 100."
+}
