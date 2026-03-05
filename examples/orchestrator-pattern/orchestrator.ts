@@ -69,7 +69,7 @@ async function runOrchestratorPipeline() {
         });
 
         console.log("\n=== 📄 DELIVERABLE: FINAL REPORT ===");
-        const loopData = result.content[0] as any;
+        const loopData = (result.content as any[])[0];
         // Handle SDK return signature properly checking if it has text
         if (loopData.type === "text") {
             console.log(loopData.text.split("```json")[0].trim());
