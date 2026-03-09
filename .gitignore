@@ -28,6 +28,7 @@ thought-graph-state*.json
 .agent/
 .agents/
 .roo/
+.roomodes
 skills-lock.json
 MCP_CONFIG_README.md
 
