@@ -81,6 +81,30 @@ export async function startHttpServer(): Promise<net.Server> {
         res.json(getGraphInstance().getGraph());
     });
 
+    app.get("/api/graph/stream", (req, res) => {
+        // Setup SSE headers
+        res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        });
+
+        const graph = getGraphInstance();
+
+        // Send the initial state immediately
+        res.write(`data: ${JSON.stringify(graph.getGraph())}\n\n`);
+
+        // Subscribe to real-time mutations
+        const unsubscribe = graph.onUpdate(() => {
+            res.write(`data: ${JSON.stringify(graph.getGraph())}\n\n`);
+        });
+
+        // Cleanup strictly on disconnect to prevent memory leaks
+        req.on("close", () => {
+            unsubscribe();
+        });
+    });
+
     app.get("/health", (req, res) => {
         const graph = getGraphInstance();
         res.json({

@@ -13,6 +13,11 @@ async function triggerAutonomousAudit(
     node: { id: string; thought: string; score: number },
     graph: ThoughtGraph
 ): Promise<string> {
+    const clientCaps = server.server.getClientCapabilities();
+    if (!clientCaps?.sampling) {
+        throw new Error("The connected client (e.g., Claude Desktop) does not support LLM sampling. Autonomous audit is disabled. Please provide a manual 'score' to evaluate_thought.");
+    }
+
     const auditPrompt = `Please audit this thought node:
 Thought: "${node.thought}"
 Current Score: ${node.score}
@@ -56,7 +61,7 @@ Provide a JSON response with:
         return `Autonomous audit triggered for ${node.id}. Result logged in metadata.`;
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Unknown error";
-        throw new Error(`Autonomous audit failed: ${message}. Host may not support sampling.`);
+        throw new Error(`Autonomous audit failed: ${message}`);
     }
 }
 
@@ -116,18 +121,31 @@ export function createServerInstance(): McpServer {
                 relation: z.enum(["refinement", "contradiction", "support", "branch"])
                     .default("refinement")
                     .describe("How this thought relates to its parent"),
+                authorId: z.string().optional().describe("Which sub-agent proposed the thought"),
+                agentTarget: z.string().optional().describe("Which specialized agent persona the thought is routed to"),
+                executionState: z.enum(["queued", "processing", "done"]).optional().describe("To track swarm fulfillment independently of the logical status"),
+                dependencies: z.array(z.string()).optional().describe("Optional explicit node dependencies beyond standard edges"),
             },
             annotations: { destructiveHint: true }
         },
-        async ({ thought, parentId, relation }: { thought: string; parentId?: string; relation?: "refinement" | "contradiction" | "support" | "branch" }) => {
+        async ({ thought, parentId, relation, authorId, agentTarget, executionState, dependencies }: { thought: string; parentId?: string; relation?: "refinement" | "contradiction" | "support" | "branch"; authorId?: string; agentTarget?: string; executionState?: "queued" | "processing" | "done"; dependencies?: string[] }) => {
             try {
-                const nodeId = graph.addNode(thought);
+                const nodeId = await graph.addNode(thought);
+
+                if (authorId || agentTarget || executionState || dependencies) {
+                    await graph.updateNode(nodeId, {
+                        authorId,
+                        agentTarget,
+                        executionState,
+                        dependencies
+                    });
+                }
 
                 if (parentId) {
                     if (!graph.hasNode(parentId)) {
                         return { content: [{ type: "text", text: `Error: Parent node '${parentId}' not found` }], isError: true };
                     }
-                    graph.addEdge(parentId, nodeId, relation || "refinement");
+                    await graph.addEdge(parentId, nodeId, relation || "refinement");
                 }
 
                 notifyUpdate();
@@ -156,10 +174,14 @@ export function createServerInstance(): McpServer {
                     relevance: z.number().min(0).max(1).describe("Addresses the problem directly"),
                     novelty: z.number().min(0).max(1).describe("Adds new information"),
                 }).optional().describe("v4.0: Multi-dimensional confidence — if provided, composite score is auto-computed"),
+                authorId: z.string().optional().describe("Which sub-agent explicitly evaluated this thought"),
+                agentTarget: z.string().optional().describe("Re-route to another specialized agent persona"),
+                executionState: z.enum(["queued", "processing", "done"]).optional().describe("Update swarm fulfillment state"),
+                dependencies: z.array(z.string()).optional().describe("Update explicit node dependencies"),
             },
             annotations: { destructiveHint: true }
         },
-        async ({ nodeId, score, status, critique, confidence }: { nodeId: string; score?: number; status?: "active" | "validated" | "rejected" | "branching"; critique?: string; confidence?: ConfidenceVector }) => {
+        async ({ nodeId, score, status, critique, confidence, authorId, agentTarget, executionState, dependencies }: { nodeId: string; score?: number; status?: "active" | "validated" | "rejected" | "branching"; critique?: string; confidence?: ConfidenceVector; authorId?: string; agentTarget?: string; executionState?: "queued" | "processing" | "done"; dependencies?: string[] }) => {
             try {
                 const node = graph.getNode(nodeId);
                 if (!node) {
@@ -180,10 +202,14 @@ export function createServerInstance(): McpServer {
                     };
                 }
 
-                graph.updateNode(nodeId, {
+                await graph.updateNode(nodeId, {
                     score: finalScore,
                     confidence,
                     status: status ?? node.status,
+                    authorId: authorId ?? node.authorId,
+                    agentTarget: agentTarget ?? node.agentTarget,
+                    executionState: executionState ?? node.executionState,
+                    dependencies: dependencies ?? node.dependencies,
                     metadata: critique ? { critique } : undefined,
                 });
 
@@ -222,7 +248,7 @@ export function createServerInstance(): McpServer {
             annotations: { destructiveHint: true }
         },
         async () => {
-            graph.clear();
+            await graph.clear();
             notifyUpdate();
             return {
                 content: [{ type: "text", text: "Thought graph cleared." }],
@@ -246,7 +272,7 @@ export function createServerInstance(): McpServer {
         },
         async ({ nodeIds, synthesis, weights }: { nodeIds: string[]; synthesis: string; weights?: number[] }) => {
             try {
-                const newId = graph.aggregateNodes(nodeIds, synthesis, weights);
+                const newId = await graph.aggregateNodes(nodeIds, synthesis, weights);
                 const newNode = graph.getNode(newId);
                 const metadata = newNode?.metadata as Record<string, unknown> | undefined;
 
@@ -283,7 +309,7 @@ export function createServerInstance(): McpServer {
         },
         async ({ nodeId, reason, mode, decayFactor, trigger }: { nodeId: string; reason?: string; mode?: "hard" | "soft"; decayFactor?: number; trigger?: "manual" | "auto" }) => {
             try {
-                const result = graph.pruneFromNode(nodeId, reason, { mode, decayFactor, trigger });
+                const result = await graph.pruneFromNode(nodeId, reason, { mode, decayFactor, trigger });
 
                 notifyUpdate();
                 return {
@@ -470,12 +496,27 @@ export function createServerInstance(): McpServer {
                 }).describe("Multi-dimensional confidence assessment"),
                 refinedThought: z.string().max(5000).optional()
                     .describe("If critique reveals a flaw, provide the improved version to auto-branch"),
+                authorId: z.string().optional().describe("Which sub-agent explicitly evaluated this thought"),
+                agentTarget: z.string().optional().describe("Re-route to another specialized agent persona"),
+                executionState: z.enum(["queued", "processing", "done"]).optional().describe("Update swarm fulfillment state"),
+                dependencies: z.array(z.string()).optional().describe("Update explicit node dependencies"),
             },
             annotations: { destructiveHint: true }
         },
-        async ({ nodeId, critique, confidence, refinedThought }: { nodeId: string; critique: string; confidence: ConfidenceVector; refinedThought?: string }) => {
+        async ({ nodeId, critique, confidence, refinedThought, authorId, agentTarget, executionState, dependencies }: { nodeId: string; critique: string; confidence: ConfidenceVector; refinedThought?: string; authorId?: string; agentTarget?: string; executionState?: "queued" | "processing" | "done"; dependencies?: string[] }) => {
             try {
-                const result = graph.reflectAndRefine(nodeId, critique, confidence, refinedThought);
+                const result = await graph.reflectAndRefine(nodeId, critique, confidence, refinedThought);
+
+                if (authorId || agentTarget || executionState || dependencies) {
+                    await graph.updateNode(nodeId, {
+                        authorId, agentTarget, executionState, dependencies
+                    });
+                    if (result.branchId) {
+                        await graph.updateNode(result.branchId, {
+                            authorId, agentTarget, executionState: "queued", dependencies
+                        });
+                    }
+                }
 
                 notifyUpdate();
                 const parts = [
@@ -588,6 +629,51 @@ export function createServerInstance(): McpServer {
     );
 
     // ==========================================
+    // v4.1: KGoT Persistence (Framework B)
+    // ==========================================
+
+    server.registerTool(
+        "export_proven_memory",
+        {
+            description: "Export the validated reasoning path terminating at a specific node, structured strictly for the standard @mcp:memory Knowledge Graph format. Use this to permanently store the logical conclusions of a GoT session.",
+            inputSchema: {
+                nodeId: z.string().optional().describe("Optional leaf node ID. If omitted, automatically selects the highest-scoring converged path."),
+            },
+            annotations: { readOnlyHint: true }
+        },
+        async ({ nodeId }: { nodeId?: string }) => {
+            try {
+                // The explicit API boundary defined by the standard `@mcp:memory` server.
+                // We enforce this schema at runtime so our internal DAG structure can evolve 
+                // without blowing up other agents expecting strict standard Knowledge Graph shapes.
+                const mcpMemorySchema = z.object({
+                    entities: z.array(z.object({
+                        name: z.string(),
+                        entityType: z.string(),
+                        observations: z.array(z.string())
+                    })),
+                    relations: z.array(z.object({
+                        from: z.string(),
+                        to: z.string(),
+                        relationType: z.string()
+                    }))
+                });
+
+                const rawPayload = await graph.exportProvenMemory(nodeId);
+                // Schema Coupling Fix: Strip unknown keys, validate strict compliance
+                const memoryPayload = mcpMemorySchema.parse(rawPayload);
+
+                return {
+                    content: [{ type: "text", text: `Memory exported successfully. Extracted ${memoryPayload.entities.length} logical entities and ${memoryPayload.relations.length} relations.` }],
+                    structuredContent: memoryPayload as unknown as Record<string, unknown>,
+                };
+            } catch (err) {
+                return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+            }
+        }
+    );
+
+    // ==========================================
     // v4.0: Controller Loop — Autonomous GoT Orchestrator
     // ==========================================
 
@@ -614,7 +700,7 @@ export function createServerInstance(): McpServer {
             beamWidth?: number;
         }) => {
             try {
-                const result = graph.runControllerLoop(prompt, thoughts, {
+                const result = await graph.runControllerLoop(prompt, thoughts, {
                     maxIterations,
                     convergenceThreshold,
                     autoPruneBelow,
@@ -634,6 +720,58 @@ export function createServerInstance(): McpServer {
                 return {
                     content: [{ type: "text", text: summary }],
                     structuredContent: result as unknown as Record<string, unknown>,
+                };
+            } catch (err) {
+                return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+            }
+        }
+    );
+
+    // ==========================================
+    // v4.2: Context Firewall (Framework C Swarm Orchestration)
+    // ==========================================
+
+    server.registerTool(
+        "compile_node_context",
+        {
+            description: "SOTA Context Firewall: Compiles the exact reasoning context for a specific node, filtering out all lateral branches. Protects swarm agents against context bottlenecks.",
+            inputSchema: {
+                nodeId: z.string().min(1).describe("The target node that requires restricted context extraction"),
+                ignorePruned: z.boolean().default(true).describe("If true, stop traversing paths that were rejected/soft-pruned (0 score) to prevent context token leaks"),
+            },
+            annotations: { readOnlyHint: true }
+        },
+        async ({ nodeId, ignorePruned }: { nodeId: string; ignorePruned?: boolean }) => {
+            try {
+                const trace = graph.compileNodeContext(nodeId, ignorePruned ?? true);
+                return {
+                    content: [{ type: "text", text: JSON.stringify(trace, null, 2) }],
+                    structuredContent: { contextNodes: trace, count: trace.length },
+                };
+            } catch (err) {
+                return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+            }
+        }
+    );
+
+    server.registerTool(
+        "query_nodes",
+        {
+            description: "Query and filter nodes by swarm orchestration fields (e.g., finding all queued tasks for a specific agent). This is the primary task discovery mechanism for swarm agents.",
+            inputSchema: {
+                executionState: z.enum(["queued", "processing", "done"]).optional().describe("Filter by execution state"),
+                agentTarget: z.string().optional().describe("Filter by targeted agent persona"),
+                status: z.enum(["active", "validated", "rejected", "branching"]).optional().describe("Filter by logical status"),
+                authorId: z.string().optional().describe("Filter by the authoring agent"),
+            },
+            annotations: { readOnlyHint: true }
+        },
+        async (filter: { executionState?: "queued" | "processing" | "done"; agentTarget?: string; status?: "active" | "validated" | "rejected" | "branching"; authorId?: string; }) => {
+            try {
+                const results = graph.queryNodes(filter);
+                return {
+                    content: [{ type: "text", text: `Found ${results.length} nodes matching the query.` }],
+                    structuredContent: { nodes: results, count: results.length },
                 };
             } catch (err) {
                 return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };

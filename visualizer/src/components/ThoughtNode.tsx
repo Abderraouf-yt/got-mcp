@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Brain, CheckCircle2, XCircle, GitBranch, Sparkles } from 'lucide-react';
+import { Brain, CheckCircle2, XCircle, GitBranch, Sparkles, User, Target, Loader2, Link2 } from 'lucide-react';
 import './ThoughtNode.css';
 
 export interface ThoughtNodeData {
@@ -8,6 +8,10 @@ export interface ThoughtNodeData {
     status: 'active' | 'validated' | 'rejected' | 'branching';
     score: number;
     metadata?: Record<string, unknown>;
+    authorId?: string;
+    agentTarget?: string;
+    executionState?: 'queued' | 'processing' | 'done';
+    dependencies?: string[];
 }
 
 const statusConfig = {
@@ -79,6 +83,30 @@ function ThoughtNode({ data, id }: NodeProps) {
                 <div className="thought-node-content">
                     <p className="thought-node-text">{nodeData.thought}</p>
                 </div>
+
+                {/* Swarm Meta (Framework C) */}
+                {(nodeData.authorId || nodeData.agentTarget || (nodeData.dependencies && nodeData.dependencies.length > 0)) && (
+                    <div className="thought-node-swarm-meta">
+                        {nodeData.authorId && (
+                            <div className="swarm-badge author-badge">
+                                <User size={12} /> {nodeData.authorId}
+                            </div>
+                        )}
+                        {nodeData.agentTarget && (
+                            <div className="swarm-badge target-badge">
+                                <Target size={12} /> {nodeData.agentTarget}
+                                {nodeData.executionState === 'queued' && <span className="swarm-state queued">(Queued)</span>}
+                                {nodeData.executionState === 'processing' && <Loader2 size={12} className="lucide-spin swarm-state processing" />}
+                                {nodeData.executionState === 'done' && <CheckCircle2 size={12} className="swarm-state done" />}
+                            </div>
+                        )}
+                        {nodeData.dependencies && nodeData.dependencies.length > 0 && (
+                            <div className="swarm-badge deps-badge">
+                                <Link2 size={12} /> {nodeData.dependencies.length} Dep(s)
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Footer */}
                 <div className="thought-node-footer">

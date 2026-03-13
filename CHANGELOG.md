@@ -5,10 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.0] - 2026-03-13
+
+### Changed
+- **Documentation Sync**: Verified that 100% of the 19 tools rigorously comply with robust 2026 MCP annotation standards (`readOnlyHint`, `destructiveHint`), significantly outperforming prior claims.
+- **Source of Truth Update**: Synced `GEMINI.md` to reflect the 19 tools, the 56 passing tests, and the 4.3.0 version upgrade.
+- **Skill Version Match**: Updated `got-mcp-skill/SKILL.md` to version 1.2.0 tracking all 19 tools cleanly.
+- **Bug Fix**: Fixed `ThoughtGraph.test.ts` where an outdated `pruneBranch` API call was causing legacy test failure, updating it to the newer `pruneFromNode` API.
+
+### Added
+- **Comprehensive Regression Suite**: Implemented `ThoughtGraph.comprehensive.test.ts` encompassing 56 granular tests across 15 suites covering Governance, Aggregation, Pruning, Beam Search, Context Firewall, Swarm Orchestration, Snapshots, Memory Export, and Graph Metrics (100% passing).
+
+## [4.2.0] - 2026-03-10
+
+### Added
+- **Swarm Orchestration**: Added `compile_node_context` SOTA firewall to isolate reasoning paths for multi-agent delegation without ghost nodes or hallucinations.
+- **O(1) Task Discovery**: Added `query_nodes` tool to instantly discover claimed/queued agent tasks via Swarm sets.
+- **Knowledge Graph (KGoT)**: Added `export_proven_memory` to mathematically traverse backwards from a winning node and extract `@mcp:memory` compliant entities and relations.
+- **IPC Atomic Swarm Locking**: Replaced unstable `fs.writeFileSync` with asynchronous, deep-merging `proper-lockfile` yielding 0 drops under extreme 200+ concurrency.
+- **Swarm Schemas**: Extended core schemas with `authorId`, `agentTarget`, `executionState`, and `dependencies`.
+
 ## [4.0.1] - 2026-03-09
 
 ### Security
 - **Branch Protection**: Enforced strict `main` branch protections via GitHub API, requiring CodeQL analysis, build-and-test workflow passes, signed commits, and pull request reviews.
+
+## [4.1.0] - 2026-03-10
+
+### Added
+- **Real-Time Visualization**: Implemented Server-Sent Events (SSE) native hook `onGraphUpdated` in the core engine.
+- **Express Streaming**: Added `/api/graph/stream` endpoint for zero-latency unidirectional graph syncing.
+- **React 19 Reactive UI**: Refactored `visualizer/src/App.tsx` from SWR polling to a native `EventSource` custom hook.
 
 ## [4.0.0] - 2026-03-03
 

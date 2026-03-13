@@ -32,6 +32,11 @@ thought-graph-state*.json
 skills-lock.json
 MCP_CONFIG_README.md
 
+# Business Logic & Private Assets (DO NOT PUBLISH)
+reasoning-niches/
+audits/
+portfolio/
+
 # Editor/IDE
 .vscode/
 .idea/

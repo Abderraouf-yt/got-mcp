@@ -164,3 +164,50 @@
 .react-flow__handle-bottom {
     bottom: -6px !important;
 }
+
+/* Swarm Orchestration Meta (Framework C) */
+.thought-node-swarm-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 16px;
+    background: rgba(0, 0, 0, 0.4);
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.swarm-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+}
+
+.author-badge {
+    color: var(--text-secondary);
+}
+
+.target-badge {
+    color: var(--status-color);
+}
+
+.deps-badge {
+    color: #9ca3af;
+}
+
+.swarm-state {
+    margin-left: auto;
+}
+
+.swarm-state.queued { color: #fbbf24; }
+.swarm-state.processing { color: #60a5fa; }
+.swarm-state.done { color: #34d399; }
+
+.lucide-spin {
+    animation: lucide-spin 2s linear infinite;
+}
+
+@keyframes lucide-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

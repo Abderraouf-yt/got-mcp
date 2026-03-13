@@ -7,6 +7,8 @@
  */
 
 import fs from "node:fs";
+import * as lockfile from "proper-lockfile";
+import { randomUUID } from 'node:crypto';
 import path from "node:path";
 import type {
     ThoughtNode,
@@ -59,9 +61,20 @@ export class ThoughtGraph {
     private persistencePath: string | null = null;
     private limits: GraphLimits;
     private stateVersion: number = 0;
+    private instancePrefix: string;
+    private listeners: Array<() => void> = [];
+
+    // O(1) Task Discovery Indices (Framework C)
+    private indexExecutionState = {
+        queued: new Set<string>(),
+        processing: new Set<string>(),
+        done: new Set<string>()
+    };
 
     constructor(persistencePath?: string, limits?: Partial<GraphLimits>) {
         this.limits = { ...DEFAULT_GRAPH_LIMITS, ...limits };
+        this.instancePrefix = randomUUID().split('-')[0];
+
         if (persistencePath) {
             this.persistencePath = persistencePath;
             this.load();
@@ -85,59 +98,167 @@ export class ThoughtGraph {
     }
 
     /**
-     * Save the graph state to disk.
+     * Save the graph state to disk atomically across processes.
+     * Uses asynchronous locks with exponential backoff to handle Swarm contention.
      * @throws {ThoughtGraphPersistenceError} if write fails
      */
-    private save(): void {
+    private async save(): Promise<void> {
+        // Broadcast to any attached UI listeners (WebSockets/SSE)
+        for (const listener of this.listeners) {
+            try { listener(); } catch (e) { console.error("Listener error", e); }
+        }
+
         if (!this.persistencePath) return;
 
+        let releaseLock: (() => Promise<void>) | undefined;
         try {
-            // Write to a temporary file first, then rename, to avoid corrupted reads by other watch processes
+            // Ensure file exists before locking
+            if (!fs.existsSync(this.persistencePath)) {
+                fs.writeFileSync(this.persistencePath, JSON.stringify(this.getGraph(), null, 2), "utf-8");
+            }
+
+            // Acquire asynchronous IPC OS lock with exponential backoff retries
+            releaseLock = await lockfile.lock(this.persistencePath, {
+                retries: {
+                    retries: 50,         // High retry count for heavy swarm contention
+                    factor: 1.5,
+                    minTimeout: 10,
+                    maxTimeout: 1000,
+                    randomize: true      // Jitter prevents thundering herd
+                }
+            });
+
+            // NOW THAT WE HAVE THE LOCK: reload from disk to get the absolute latest state
+            // from any other process that might have written while we were waiting.
+            // But we must ONLY merge in missing data, keeping our newly minted local mutations.
+            let diskData: any = null;
+            try {
+                const raw = fs.readFileSync(this.persistencePath, "utf-8");
+                diskData = JSON.parse(raw);
+            } catch (e) {
+                // Initial file might be empty if we just created it
+            }
+
+            if (diskData && diskData.nodes) {
+                // Merge disk nodes that we don't have locally
+                const mergedNodes = new Map(this.nodes);
+                for (const dNode of diskData.nodes) {
+                    if (!mergedNodes.has(dNode.id)) {
+                        mergedNodes.set(dNode.id, dNode as ThoughtNode);
+                    } else if ((dNode as ThoughtNode).updatedAt > mergedNodes.get(dNode.id)!.updatedAt) {
+                        // Or if the disk node is newer (another process updated it)
+                        mergedNodes.set(dNode.id, dNode as ThoughtNode);
+                    }
+                }
+
+                // Merge edges
+                const mergedEdges = [...this.edges];
+                const localEdgeIds = new Set(this.edges.map(e => `${e.from}-${e.to}-${e.relation}`));
+                for (const dEdge of diskData.edges) {
+                    const edgeId = `${dEdge.from}-${dEdge.to}-${dEdge.relation}`;
+                    if (!localEdgeIds.has(edgeId)) {
+                        mergedEdges.push(dEdge as ThoughtEdge);
+                    }
+                }
+
+                // Apply merged state to memory right before writing
+                this.nodes = mergedNodes;
+                this.edges = mergedEdges;
+                this.nodeCounter = Math.max(this.nodeCounter, diskData.nodeCounter || 0);
+            }
+
             const data = JSON.stringify(this.getGraph(), null, 2);
+            // Write to a temporary file first, then rename, for total atomicity 
+            // even if the lock is somehow bypassed locally
             const tempPath = `${this.persistencePath}.tmp`;
             fs.writeFileSync(tempPath, data, "utf-8");
             fs.renameSync(tempPath, this.persistencePath);
+
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             console.error(new ThoughtGraphPersistenceError('save', this.persistencePath, message).message);
-            // We log but don't strictly throw to prevent crashing the agent session on minor I/O hitches.
-            // Alternatively, could `throw` depending on exact strictness needs, but currently logging is safer for GoT.
+        } finally {
+            if (releaseLock) {
+                try { await releaseLock(); } catch (e) { /* ignore release errors */ }
+            }
         }
     }
 
     /**
-     * Load the graph state from disk.
+     * Load the graph state from disk atomically.
+     * Synchronous block is required here for initial boot, but we use the sync lock.
      * @throws {ThoughtGraphPersistenceError} if read/parse fails
      */
     private load(): void {
         if (!this.persistencePath || !fs.existsSync(this.persistencePath)) return;
 
+        let releaseLock: (() => void) | undefined;
         try {
+            releaseLock = lockfile.lockSync(this.persistencePath, { retries: 0 });
+
             const data = fs.readFileSync(this.persistencePath, "utf-8");
             const state = JSON.parse(data) as GraphState;
 
             this.nodes.clear();
-            state.nodes.forEach((node) => this.nodes.set(node.id, node));
+            this.indexExecutionState.queued.clear();
+            this.indexExecutionState.processing.clear();
+            this.indexExecutionState.done.clear();
+
+            state.nodes.forEach((node) => {
+                this.nodes.set(node.id, node);
+                // Re-hydrate O(1) indices
+                if (node.executionState) {
+                    this.indexExecutionState[node.executionState].add(node.id);
+                }
+            });
+
             this.edges = state.edges;
 
             // Update node counter to avoid ID collisions
             const maxId = Array.from(this.nodes.keys())
-                .map(id => parseInt(id.replace("node_", ""), 10))
+                .map(id => {
+                    const parts = id.split("_");
+                    return parseInt(parts[parts.length - 1], 10);
+                })
                 .filter(num => !isNaN(num))
                 .reduce((max, num) => Math.max(max, num), 0);
 
             this.nodeCounter = maxId;
+
+            // CRITICAL: Notify listeners so cross-process mutations (from the MCP Host) 
+            // instantly trigger Server-Sent Events in the visualizer Express bridge.
+            for (const listener of this.listeners) {
+                try { listener(); } catch (e) { console.error("Listener error", e); }
+            }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            console.error(new ThoughtGraphPersistenceError('load', this.persistencePath, message).message);
+            if ((error as any).code !== 'ELOCKED') {
+                console.error(new ThoughtGraphPersistenceError('load', this.persistencePath, message).message);
+            }
             // If the file is transiently locked/corrupted during a cross-process write,
             // do NOT wipe the graph if we already have data. 
-            if (this.nodes.size === 0) {
+            if (this.nodes.size === 0 && (error as any).code !== 'ELOCKED') {
                 this.nodes.clear();
                 this.edges = [];
                 this.nodeCounter = 0;
             }
+        } finally {
+            if (releaseLock) {
+                try { releaseLock(); } catch (e) { /* ignore release errors */ }
+            }
         }
+    }
+
+    /**
+     * Subscribe to real-time graph mutations.
+     * @param listener Callback fired when nodes/edges change
+     * @returns Unsubscribe function
+     */
+    onUpdate(listener: () => void): () => void {
+        this.listeners.push(listener);
+        return () => {
+            this.listeners = this.listeners.filter(l => l !== listener);
+        };
     }
 
     /**
@@ -146,7 +267,7 @@ export class ThoughtGraph {
      * @param id - Optional custom ID (auto-generated if not provided)
      * @returns The ID of the created node
      */
-    addNode(thought: string, id?: string): string {
+    async addNode(thought: string, id?: string): Promise<string> {
         // Governance: node cap
         if (this.nodes.size >= this.limits.maxNodes) {
             throw new ThoughtGraphError(
@@ -164,7 +285,7 @@ export class ThoughtGraph {
         }
 
         this.nodeCounter++;
-        const nodeId = id || `node_${this.nodeCounter}`;
+        const nodeId = id || `node_${this.instancePrefix}_${this.nodeCounter}`;
         const now = new Date().toISOString();
 
         const node: ThoughtNode = {
@@ -178,7 +299,9 @@ export class ThoughtGraph {
 
         this.nodes.set(nodeId, node);
         this.stateVersion++;
-        this.save();
+
+        // Await persistence lock fully to avoid dropping under load
+        await this.save();
         return nodeId;
     }
 
@@ -189,7 +312,7 @@ export class ThoughtGraph {
      * @param relation - Type of relationship
      * @throws {ThoughtGraphNotFoundError} if either node doesn't exist
      */
-    addEdge(from: string, to: string, relation: ThoughtRelation): void {
+    async addEdge(from: string, to: string, relation: ThoughtRelation): Promise<void> {
         if (!this.nodes.has(from)) {
             throw new ThoughtGraphNotFoundError(from);
         }
@@ -232,7 +355,7 @@ export class ThoughtGraph {
 
         this.edges.push(edge);
         this.stateVersion++;
-        this.save();
+        await this.save();
     }
 
     /**
@@ -241,7 +364,7 @@ export class ThoughtGraph {
      * @param updates - Partial node properties to merge
      * @throws {ThoughtGraphNotFoundError} if node doesn't exist
      */
-    updateNode(id: string, updates: Partial<Omit<ThoughtNode, "id" | "createdAt">>): void {
+    async updateNode(id: string, updates: Partial<Omit<ThoughtNode, "id" | "createdAt">>): Promise<void> {
         const node = this.nodes.get(id);
         if (!node) {
             throw new ThoughtGraphNotFoundError(id);
@@ -257,10 +380,110 @@ export class ThoughtGraph {
         };
 
         this.nodes.set(id, updatedNode);
-        this.save();
+        await this.save();
     }
 
     /**
+     * Atomically claim or update the execution state of a node (Swarm Orchestration).
+     * @param id - Node ID
+     * @param expectedOldState - The state we expect the node to be in (e.g. 'queued')
+     * @param newState - The new state to apply
+     * @param agentId - The authorId claiming it, if applicable
+     * @throws {ThoughtGraphError} if the state doesn't match (race condition prevented)
+     */
+    async updateNodeExecutionState(id: string, expectedOldState: "queued" | "processing" | "done" | undefined, newState: "queued" | "processing" | "done", agentId?: string): Promise<void> {
+        const node = this.nodes.get(id);
+        if (!node) {
+            throw new ThoughtGraphNotFoundError(id);
+        }
+
+        if (expectedOldState) {
+            if (node.executionState !== expectedOldState) {
+                throw new ThoughtGraphError(
+                    `Failed to update execution state from '${expectedOldState}' to '${newState}'. ` +
+                    `Node is currently in '${node.executionState}'. ` +
+                    `This prevents race conditions between competing swarm agents.`
+                );
+            }
+            // Remove from old O(1) Index Set
+            this.indexExecutionState[expectedOldState].delete(id);
+        } else if (node.executionState) {
+            // If we weren't expecting a specific state, just clean up whatever it was in
+            this.indexExecutionState[node.executionState].delete(id);
+        }
+
+        // Add to new O(1) Index Set
+        this.indexExecutionState[newState].add(id);
+
+        const updatedNode: ThoughtNode = {
+            ...node,
+            executionState: newState,
+            authorId: agentId ?? node.authorId,
+            updatedAt: new Date().toISOString()
+        };
+
+        this.nodes.set(id, updatedNode);
+        await this.save();
+    }
+
+    /**
+     * SOTA Context Firewall: Compiles the exact reasoning context for a specific node,
+     * filtering out all lateral branches.
+     * @param nodeId - The target node that requires restricted context extraction
+     * @param ignorePruned - If true, stops traversing upwards if it hits a rejected or zero-score node (Context Firewall improvement)
+     */
+    compileNodeContext(nodeId: string, ignorePruned: boolean = true): ThoughtNode[] {
+        const targetNode = this.nodes.get(nodeId);
+        if (!targetNode) {
+            throw new ThoughtGraphNotFoundError(nodeId);
+        }
+
+        const contextNodes = new Map<string, ThoughtNode>();
+
+        // Always include the target node itself
+        contextNodes.set(nodeId, targetNode);
+
+        // Recursively traverse backwards through all incoming edges
+        const traverseBackwards = (currentId: string) => {
+            const currentTargetNode = this.nodes.get(currentId);
+            if (!currentTargetNode) return;
+
+            const incomingEdges = this.edges.filter(e => e.to === currentId);
+            for (const edge of incomingEdges) {
+                const parentNode = this.nodes.get(edge.from);
+                if (parentNode && !contextNodes.has(parentNode.id)) {
+                    // Context Firewall: Stop traversing this path if the parent is explicitly rejected or soft-pruned to 0
+                    if (ignorePruned && (parentNode.status === 'rejected' || parentNode.score === 0)) {
+                        continue;
+                    }
+                    contextNodes.set(parentNode.id, parentNode);
+                    traverseBackwards(parentNode.id);
+                }
+            }
+            // Follow explicit dependencies
+            if (currentTargetNode.dependencies && Array.isArray(currentTargetNode.dependencies)) {
+                for (const depId of currentTargetNode.dependencies) {
+                    const depNode = this.nodes.get(depId);
+                    if (depNode && !contextNodes.has(depNode.id)) {
+                        // Context Firewall: Stop here if soft-pruned
+                        if (ignorePruned && (depNode.status === 'rejected' || depNode.score === 0)) {
+                            continue;
+                        }
+                        contextNodes.set(depNode.id, depNode);
+                        traverseBackwards(depNode.id);
+                    }
+                }
+            }
+        };
+
+        // Start from the target node
+        traverseBackwards(nodeId);
+
+        // Sort topologically or chronologically to ensure context is read in order
+        return Array.from(contextNodes.values()).sort((a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+    }/**
      * Retrieve a specific thought node by ID.
      * @param id - Node ID to retrieve
      * @returns The node if found, undefined otherwise
@@ -302,6 +525,30 @@ export class ThoughtGraph {
     }
 
     /**
+     * Query nodes by specific metadata/swarm fields.
+     * Uses O(1) Swarm Task Indices when querying strictly by executionState for massive scale task discovery.
+     * @param filter - Object containing optional fields: executionState, agentTarget, status, authorId
+     */
+    queryNodes(filter: { executionState?: string; agentTarget?: string; status?: string; authorId?: string; }): ThoughtNode[] {
+        // Optimization: If we are ONLY querying by executionState (the primary Swarm PULL pattern)
+        if (filter.executionState && !filter.agentTarget && !filter.status && !filter.authorId) {
+            const index = this.indexExecutionState[filter.executionState as keyof typeof this.indexExecutionState];
+            if (index) {
+                return Array.from(index).map(id => this.nodes.get(id)!).filter(Boolean);
+            }
+        }
+
+        // Fallback for complex cross-filtered queries
+        return Array.from(this.nodes.values()).filter(node => {
+            if (filter.executionState && node.executionState !== filter.executionState) return false;
+            if (filter.agentTarget && node.agentTarget !== filter.agentTarget) return false;
+            if (filter.status && node.status !== filter.status) return false;
+            if (filter.authorId && node.authorId !== filter.authorId) return false;
+            return true;
+        });
+    }
+
+    /**
      * Get the complete graph state as a serializable object.
      * @returns Full graph state with metadata
      */
@@ -338,7 +585,7 @@ export class ThoughtGraph {
      * @param weights - Optional per-node weights (defaults to each node's own score as weight)
      * @returns The ID of the new aggregated node
      */
-    aggregateNodes(nodeIds: string[], synthesizedThought: string, weights?: number[]): string {
+    async aggregateNodes(nodeIds: string[], synthesizedThought: string, weights?: number[]): Promise<string> {
         if (nodeIds.length < 2) {
             throw new ThoughtGraphError("Aggregation requires at least 2 source nodes");
         }
@@ -386,8 +633,8 @@ export class ThoughtGraph {
         }));
 
         // Create the synthesized node
-        const newId = this.addNode(synthesizedThought);
-        this.updateNode(newId, {
+        const newId = await this.addNode(synthesizedThought);
+        await this.updateNode(newId, {
             score: Math.round(weightedScore * 100) / 100,
             status: "validated",
             metadata: {
@@ -396,14 +643,13 @@ export class ThoughtGraph {
                 sourceCount: nodeIds.length,
                 weightedScore: Math.round(weightedScore * 100) / 100,
                 confidence,
-                provenance,
                 formula: "Σ(score×weight)/Σ(weights)",
             },
         });
 
         // Create aggregation edges from each source → new node
         for (const sourceId of nodeIds) {
-            this.addEdge(sourceId, newId, "aggregation");
+            await this.addEdge(sourceId, newId, "aggregation");
         }
 
         return newId;
@@ -418,11 +664,11 @@ export class ThoughtGraph {
      * @param nodeId - The root node of the branch to prune
      * @param options - Prune configuration
      */
-    pruneFromNode(
+    async pruneFromNode(
         nodeId: string,
         reason?: string,
         options?: { mode?: "hard" | "soft"; decayFactor?: number; trigger?: "manual" | "auto" }
-    ): { pruned: string[]; mode: string } {
+    ): Promise<{ pruned: string[]; mode: string }> {
         if (!this.nodes.has(nodeId)) {
             throw new ThoughtGraphNotFoundError(nodeId);
         }
@@ -495,7 +741,7 @@ export class ThoughtGraph {
         }
 
         this.stateVersion++;
-        this.save();
+        await this.save();
         return { pruned, mode };
     }
 
@@ -718,11 +964,11 @@ export class ThoughtGraph {
      * Clear all nodes and edges from the graph.
      * Resets the node counter.
      */
-    clear(): void {
+    async clear(): Promise<void> {
         this.nodes.clear();
         this.edges = [];
         this.nodeCounter = 0;
-        this.save();
+        await this.save();
     }
 
     /**
@@ -762,17 +1008,30 @@ export class ThoughtGraph {
      * Restore graph state from a snapshot.
      * Completely replaces current state for deterministic replay.
      */
-    restoreSnapshot(snapshot: { nodes: ThoughtNode[]; edges: ThoughtEdge[]; nodeCounter: number }): void {
-        this.nodes.clear();
-        this.edges = [];
+    async restoreSnapshot(snapshot: { nodes: ThoughtNode[]; edges: ThoughtEdge[]; nodeCounter: number }): Promise<void> {
+        let backupNodes: Map<string, ThoughtNode> | undefined;
+        let backupEdges: ThoughtEdge[] | undefined;
 
-        for (const node of snapshot.nodes) {
-            this.nodes.set(node.id, node);
+        try {
+            // Backup current state in case save fails
+            backupNodes = new Map(this.nodes);
+            backupEdges = [...this.edges];
+
+            this.nodes.clear();
+            snapshot.nodes.forEach(n => this.nodes.set(n.id, n));
+            this.edges = [...snapshot.edges];
+            this.nodeCounter = snapshot.nodeCounter;
+
+            await this.save(); // wait for save here since it's a massive overwrite
+        } catch (error) {
+            // If save fails, revert to backup
+            console.error("Failed to save snapshot, reverting to previous state:", error);
+            if (backupNodes) this.nodes = backupNodes;
+            if (backupEdges) this.edges = backupEdges;
+            // Note: nodeCounter might not be perfectly restored without a full snapshot of it
+            // but for recovery, nodes/edges are most critical.
+            throw error; // Re-throw to indicate failure
         }
-        this.edges = [...snapshot.edges];
-        this.nodeCounter = snapshot.nodeCounter;
-
-        this.save();
     }
 
     // ==========================================
@@ -829,12 +1088,12 @@ export class ThoughtGraph {
      * @param refinedThought - Optional improved version of the thought
      * @returns IDs of created nodes
      */
-    reflectAndRefine(
+    async reflectAndRefine(
         nodeId: string,
         critique: string,
         confidence: ConfidenceVector,
         refinedThought?: string
-    ): { critiqueId: string; branchId?: string; compositeScore: number } {
+    ): Promise<{ critiqueId: string; branchId?: string; compositeScore: number }> {
         const node = this.nodes.get(nodeId);
         if (!node) {
             throw new ThoughtGraphNotFoundError(nodeId);
@@ -843,20 +1102,19 @@ export class ThoughtGraph {
         const compositeScore = this.computeCompositeScore(confidence);
 
         // Update the original node with confidence data
-        this.nodes.set(nodeId, {
-            ...node,
+        await this.updateNode(nodeId, {
             score: compositeScore,
             confidence,
             updatedAt: new Date().toISOString(),
         });
 
         // Create critique node
-        const critiqueId = this.addNode(`[Reflection] ${critique}`);
-        this.addEdge(nodeId, critiqueId, "reflection");
+        const critiqueId = await this.addNode(`[Reflection] ${critique}`);
+        await this.addEdge(nodeId, critiqueId, "reflection");
 
         // Update critique node with assessment metadata
         const critiqueNode = this.nodes.get(critiqueId)!;
-        this.nodes.set(critiqueId, {
+        await this.updateNode(critiqueId, {
             ...critiqueNode,
             score: compositeScore,
             confidence,
@@ -872,11 +1130,11 @@ export class ThoughtGraph {
 
         // If critique reveals a flaw and refined version provided, branch
         if (refinedThought && compositeScore < 0.7) {
-            branchId = this.addNode(refinedThought);
-            this.addEdge(nodeId, branchId, "branch");
+            branchId = await this.addNode(refinedThought);
+            await this.addEdge(nodeId, branchId, "branch");
 
             const branchNode = this.nodes.get(branchId)!;
-            this.nodes.set(branchId, {
+            await this.updateNode(branchId, {
                 ...branchNode,
                 status: "active",
                 metadata: {
@@ -888,7 +1146,7 @@ export class ThoughtGraph {
         }
 
         this.stateVersion++;
-        this.save();
+        await this.save();
 
         return { critiqueId, branchId, compositeScore };
     }
@@ -974,7 +1232,7 @@ export class ThoughtGraph {
      * @param options - Controller loop configuration
      * @returns The final winning path, reasoning trace, and iteration metrics
      */
-    runControllerLoop(
+    async runControllerLoop(
         prompt: string,
         thoughts: string[],
         options?: {
@@ -983,7 +1241,7 @@ export class ThoughtGraph {
             autoPruneBelow?: number;
             beamWidth?: number;
         }
-    ): ControllerLoopResult {
+    ): Promise<ControllerLoopResult> {
         const maxIterations = options?.maxIterations ?? 5;
         const convergenceThreshold = options?.convergenceThreshold ?? 0.85;
         const autoPruneBelow = options?.autoPruneBelow ?? 0.3;
@@ -992,13 +1250,13 @@ export class ThoughtGraph {
         const iterationLog: IterationLog[] = [];
 
         // Step 1: GENERATE — seed the graph with the prompt + initial thoughts
-        const rootId = this.addNode(prompt);
-        this.updateNode(rootId, { score: 0.5, status: "active" });
+        const rootId = await this.addNode(prompt);
+        await this.updateNode(rootId, { score: 0.5, status: "active" });
 
         for (const thought of thoughts) {
-            const childId = this.addNode(thought);
-            this.addEdge(rootId, childId, "branch");
-            this.updateNode(childId, { score: 0.5, status: "active" });
+            const childId = await this.addNode(thought);
+            await this.addEdge(rootId, childId, "branch");
+            await this.updateNode(childId, { score: 0.5, status: "active" });
         }
 
         let converged = false;
@@ -1030,7 +1288,7 @@ export class ThoughtGraph {
                     1.0
                 );
 
-                this.updateNode(leaf.id, {
+                await this.updateNode(leaf.id, {
                     score: autoScore,
                     status: autoScore >= convergenceThreshold ? "validated" : "active",
                 });
@@ -1043,7 +1301,7 @@ export class ThoughtGraph {
 
             for (const weak of lowScorers) {
                 try {
-                    const result = this.pruneFromNode(weak.id, `Auto-pruned: score ${weak.score} < ${autoPruneBelow}`, {
+                    const result = await this.pruneFromNode(weak.id, `Auto-pruned: score ${weak.score} < ${autoPruneBelow}`, {
                         mode: "soft",
                         decayFactor: 0.3,
                         trigger: "auto",
@@ -1062,9 +1320,9 @@ export class ThoughtGraph {
                 const existingChildren = this.edges.filter(e => e.from === mid.id).length;
                 if (existingChildren < this.limits.maxBranchFactor && this.nodes.size < this.limits.maxNodes - 5) {
                     try {
-                        const altId = this.addNode(`[Alternative] What if we reconsider: ${mid.thought.substring(0, 200)}...`);
-                        this.addEdge(mid.id, altId, "branch");
-                        this.updateNode(altId, { score: 0.5, status: "active" });
+                        const altId = await this.addNode(`[Alternative] What if we reconsider: ${mid.thought.substring(0, 200)}...`);
+                        await this.addEdge(mid.id, altId, "branch");
+                        await this.updateNode(altId, { score: 0.5, status: "active" });
                         branched++;
                     } catch {
                         // Skip if limits hit
@@ -1086,7 +1344,7 @@ export class ThoughtGraph {
                         relevance: Math.min(top.score + 0.15, 1),
                         novelty: Math.max(top.score - 0.1, 0),
                     };
-                    this.reflectAndRefine(
+                    await this.reflectAndRefine(
                         top.id,
                         `Iteration ${iteration} auto-reflection: evaluating strength of reasoning.`,
                         confidence
@@ -1168,6 +1426,76 @@ export class ThoughtGraph {
         if (/\b(data|evidence|research|study|benchmark)\b/i.test(thought)) score += 0.1; // Evidence
 
         return Math.min(score, 1.0);
+    }
+
+    /**
+     * Export the validated reasoning path terminating at a specific node
+     * structured strictly for the standard @mcp:memory Knowledge Graph format.
+     */
+    exportProvenMemory(leafNodeId?: string) {
+        const leaf = leafNodeId ? this.nodes.get(leafNodeId) : (() => {
+            const p = this.findWinningPath({ beamWidth: 1 }).path;
+            return p.length > 0 ? p[p.length - 1] : undefined;
+        })();
+
+        if (!leaf) {
+            throw new Error("No valid leaf node found to export memory from.");
+        }
+
+        const visited = new Set<string>();
+        const queue = [leaf.id];
+        const entities: { name: string; entityType: string; observations: string[] }[] = [];
+        const relations: { from: string; to: string; relationType: string }[] = [];
+
+        while (queue.length > 0) {
+            const currentId = queue.shift()!;
+            if (visited.has(currentId)) continue;
+            visited.add(currentId);
+
+            const node = this.nodes.get(currentId);
+            if (!node) continue;
+
+            // Only include non-rejected nodes to maintain the logically sound path
+            if (node.status === "rejected") continue;
+
+            const observations = [
+                node.thought,
+                `Score: ${node.score}`,
+                `Status: ${node.status}`
+            ];
+
+            if (node.metadata?.confidence) {
+                observations.push(`Confidence: ${JSON.stringify(node.metadata.confidence)}`);
+            }
+            if (node.metadata?.synthesis) {
+                observations.push(`Synthesis: ${node.metadata.synthesis}`);
+            }
+
+            entities.push({
+                name: `Thought ${node.id}`,
+                entityType: "ThoughtNode",
+                observations
+            });
+
+            // Find parents to continue backward traversal
+            const incomingEdges = this.edges.filter(e => e.to === currentId);
+            for (const edge of incomingEdges) {
+                const parent = this.nodes.get(edge.from);
+                if (parent && parent.status !== "rejected") {
+                    queue.push(edge.from);
+                    relations.push({
+                        from: `Thought ${edge.from}`,
+                        to: `Thought ${currentId}`,
+                        relationType: edge.relation === "contradiction" ? "contradicts" :
+                            edge.relation === "refinement" ? "refines" :
+                                edge.relation === "aggregation" ? "aggregates" :
+                                    edge.relation === "branch" ? "branches_to" : "supports"
+                    });
+                }
+            }
+        }
+
+        return { entities: entities.reverse(), relations: relations.reverse() };
     }
 }
 

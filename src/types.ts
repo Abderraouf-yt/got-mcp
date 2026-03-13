@@ -25,6 +25,10 @@ export interface ThoughtNode {
     status: ThoughtStatus;
     score: number;
     confidence?: ConfidenceVector;
+    authorId?: string;
+    agentTarget?: string;
+    executionState?: "queued" | "processing" | "done";
+    dependencies?: string[];
     metadata?: Record<string, unknown>;
     createdAt: string;
     updatedAt: string;
@@ -153,7 +157,7 @@ export interface GraphMetrics {
  */
 export const SERVER_CONFIG = {
     name: "@abderraouf-yt/got-mcp",
-    version: "4.0.0",
+    version: "4.3.0",
     description: "Graph of Thoughts (GoT) MCP Server — bounded, auditable reasoning with self-reflection and shared context",
 } as const;
 
