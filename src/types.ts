@@ -114,12 +114,12 @@ export interface GraphLimits {
  * Default governance limits per v3.0 Production Constitution.
  */
 export const DEFAULT_GRAPH_LIMITS: GraphLimits = {
-    maxNodes: 200,
-    maxBranchFactor: 5,
-    maxDepth: 15,
+    maxNodes: 1000,
+    maxBranchFactor: 10,
+    maxDepth: 30,
     maxThoughtLength: 5000,
     maxAggregationInputs: 10,
-    maxPruneCascade: 50,
+    maxPruneCascade: 100,
 } as const;
 
 /**

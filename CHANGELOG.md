@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.1] - 2026-03-13
+
+### Added
+- **Native outputSchema Strict Typing**: Extensively upgraded all 19 MCP tools with precise `outputSchema` Zod annotations. The GoT engine now natively broadcasts explicit JSON schemas dictating exact node returns, bridging perfect parsing compatibility for strict-reasoning agents (DeepSeek-R1, OpenAI o3).
+
 ## [4.3.0] - 2026-03-13
 
 ### Changed

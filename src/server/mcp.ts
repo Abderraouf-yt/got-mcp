@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import { SERVER_CONFIG, RESOURCE_URIS } from "../types.js";
 import type { ConfidenceVector } from "../types.js";
 import { getGraphInstance, ThoughtGraph } from "../graph/index.js";
@@ -126,7 +127,17 @@ export function createServerInstance(): McpServer {
                 executionState: z.enum(["queued", "processing", "done"]).optional().describe("To track swarm fulfillment independently of the logical status"),
                 dependencies: z.array(z.string()).optional().describe("Optional explicit node dependencies beyond standard edges"),
             },
-            annotations: { destructiveHint: true }
+            annotations: { destructiveHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.object({
+                    nodeId: z.string(),
+                    thought: z.string(),
+                    relation: z.string().optional(),
+                    parentId: z.string().optional()
+                }).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async ({ thought, parentId, relation, authorId, agentTarget, executionState, dependencies }: { thought: string; parentId?: string; relation?: "refinement" | "contradiction" | "support" | "branch"; authorId?: string; agentTarget?: string; executionState?: "queued" | "processing" | "done"; dependencies?: string[] }) => {
             try {
@@ -179,7 +190,18 @@ export function createServerInstance(): McpServer {
                 executionState: z.enum(["queued", "processing", "done"]).optional().describe("Update swarm fulfillment state"),
                 dependencies: z.array(z.string()).optional().describe("Update explicit node dependencies"),
             },
-            annotations: { destructiveHint: true }
+            annotations: { destructiveHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.object({
+                    nodeId: z.string(),
+                    audited: z.boolean().optional(),
+                    message: z.string().optional(),
+                    score: z.number().optional(),
+                    status: z.string().optional()
+                }).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async ({ nodeId, score, status, critique, confidence, authorId, agentTarget, executionState, dependencies }: { nodeId: string; score?: number; status?: "active" | "validated" | "rejected" | "branching"; critique?: string; confidence?: ConfidenceVector; authorId?: string; agentTarget?: string; executionState?: "queued" | "processing" | "done"; dependencies?: string[] }) => {
             try {
@@ -229,7 +251,12 @@ export function createServerInstance(): McpServer {
         {
             description: "Retrieve the entire current thought graph.",
             inputSchema: {},
-            annotations: { readOnlyHint: true }
+            annotations: { readOnlyHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.record(z.string(), z.unknown()).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async () => {
             const graphState = graph.getGraph();
@@ -245,7 +272,12 @@ export function createServerInstance(): McpServer {
         {
             description: "Clear the current reasoning session, emptying all nodes and edges.",
             inputSchema: {},
-            annotations: { destructiveHint: true }
+            annotations: { destructiveHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.object({ cleared: z.boolean() }).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async () => {
             await graph.clear();
@@ -268,7 +300,19 @@ export function createServerInstance(): McpServer {
                 synthesis: z.string().min(1, "Synthesis content is required").describe("The merged conclusion that combines insights from all source nodes"),
                 weights: z.array(z.number().min(0).max(1)).optional().describe("Optional per-node weights (defaults to each node's score as its confidence weight)"),
             },
-            annotations: { destructiveHint: true }
+            annotations: { destructiveHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.object({
+                    newNodeId: z.string(),
+                    aggregatedFrom: z.array(z.string()),
+                    weightedScore: z.number(),
+                    confidence: z.number().nullable(),
+                    formula: z.string(),
+                    synthesis: z.string()
+                }).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async ({ nodeIds, synthesis, weights }: { nodeIds: string[]; synthesis: string; weights?: number[] }) => {
             try {
@@ -305,7 +349,18 @@ export function createServerInstance(): McpServer {
                 decayFactor: z.number().min(0).max(1).default(0.5).describe("Score multiplier for soft prune (0.5 = halve scores)"),
                 trigger: z.enum(["manual", "auto"]).default("manual").describe("Whether this prune was triggered manually or by an auto-threshold"),
             },
-            annotations: { destructiveHint: true }
+            annotations: { destructiveHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.object({
+                    prunedCount: z.number(),
+                    prunedIds: z.array(z.string()),
+                    mode: z.string(),
+                    reason: z.string(),
+                    trigger: z.string()
+                }).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async ({ nodeId, reason, mode, decayFactor, trigger }: { nodeId: string; reason?: string; mode?: "hard" | "soft"; decayFactor?: number; trigger?: "manual" | "auto" }) => {
             try {
@@ -455,7 +510,16 @@ export function createServerInstance(): McpServer {
                     nodeCounter: z.number().int().min(0).describe("The node counter value from the snapshot"),
                 }).describe("A snapshot object previously returned by export_snapshot"),
             },
-            annotations: { destructiveHint: true }
+            annotations: { destructiveHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.object({
+                    restoredNodes: z.number(),
+                    restoredEdges: z.number(),
+                    previousNodes: z.number()
+                }).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async ({ snapshot }: { snapshot: { nodes: any[]; edges: any[]; nodeCounter: number } }) => {
             try {
@@ -501,7 +565,18 @@ export function createServerInstance(): McpServer {
                 executionState: z.enum(["queued", "processing", "done"]).optional().describe("Update swarm fulfillment state"),
                 dependencies: z.array(z.string()).optional().describe("Update explicit node dependencies"),
             },
-            annotations: { destructiveHint: true }
+            annotations: { destructiveHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.object({
+                    nodeId: z.string(),
+                    critiqueId: z.string(),
+                    branchId: z.string().nullable(),
+                    compositeScore: z.number(),
+                    confidence: z.record(z.string(), z.any())
+                }).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async ({ nodeId, critique, confidence, refinedThought, authorId, agentTarget, executionState, dependencies }: { nodeId: string; critique: string; confidence: ConfidenceVector; refinedThought?: string; authorId?: string; agentTarget?: string; executionState?: "queued" | "processing" | "done"; dependencies?: string[] }) => {
             try {
@@ -556,7 +631,16 @@ export function createServerInstance(): McpServer {
                 value: z.unknown().describe("Any JSON-serializable value"),
                 source: z.string().min(1).max(200).describe("Source of this context (e.g. 'propose_thought:node_3', 'user_input')"),
             },
-            annotations: { destructiveHint: true }
+            annotations: { destructiveHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.object({
+                    key: z.string(),
+                    source: z.string(),
+                    totalEntries: z.number()
+                }).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async ({ key, value, source }: { key: string; value: unknown; source: string }) => {
             contextStore.set(key, value, source);
@@ -574,7 +658,12 @@ export function createServerInstance(): McpServer {
             inputSchema: {
                 key: z.string().min(1).describe("Context key to retrieve"),
             },
-            annotations: { destructiveHint: true }
+            annotations: { destructiveHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.record(z.string(), z.any()).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async ({ key }: { key: string }) => {
             const entry = contextStore.getWithProvenance(key);
@@ -593,7 +682,15 @@ export function createServerInstance(): McpServer {
         {
             description: "List all keys in the shared context store with their sources. Use to see what knowledge is already available before generating new thoughts.",
             inputSchema: {},
-            annotations: { readOnlyHint: true }
+            annotations: { readOnlyHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.object({
+                    entries: z.array(z.any()),
+                    count: z.number()
+                }).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async () => {
             const entries = contextStore.list();
@@ -613,7 +710,12 @@ export function createServerInstance(): McpServer {
         {
             description: "Export the current graph's best reasoning path as a structured trace. Compatible with Long CoT format used by DeepSeek-R1 and o3 for RL training and context.",
             inputSchema: {},
-            annotations: { readOnlyHint: true }
+            annotations: { readOnlyHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.record(z.string(), z.any()).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async () => {
             try {
@@ -639,7 +741,12 @@ export function createServerInstance(): McpServer {
             inputSchema: {
                 nodeId: z.string().optional().describe("Optional leaf node ID. If omitted, automatically selects the highest-scoring converged path."),
             },
-            annotations: { readOnlyHint: true }
+            annotations: { readOnlyHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.record(z.string(), z.any()).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async ({ nodeId }: { nodeId?: string }) => {
             try {
@@ -689,7 +796,12 @@ export function createServerInstance(): McpServer {
                 autoPruneBelow: z.number().min(0).max(1).default(0.3).describe("Auto soft-prune branches scoring below this (default: 0.3)"),
                 beamWidth: z.number().int().min(1).max(10).default(2).describe("Number of top paths to track during convergence (default: 2)"),
             },
-            annotations: { destructiveHint: true }
+            annotations: { destructiveHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.record(z.string(), z.any()).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async ({ prompt, thoughts, maxIterations, convergenceThreshold, autoPruneBelow, beamWidth }: {
             prompt: string;
@@ -739,7 +851,15 @@ export function createServerInstance(): McpServer {
                 nodeId: z.string().min(1).describe("The target node that requires restricted context extraction"),
                 ignorePruned: z.boolean().default(true).describe("If true, stop traversing paths that were rejected/soft-pruned (0 score) to prevent context token leaks"),
             },
-            annotations: { readOnlyHint: true }
+            annotations: { readOnlyHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.object({
+                    contextNodes: z.array(z.any()),
+                    count: z.number()
+                }).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async ({ nodeId, ignorePruned }: { nodeId: string; ignorePruned?: boolean }) => {
             try {
@@ -764,7 +884,15 @@ export function createServerInstance(): McpServer {
                 status: z.enum(["active", "validated", "rejected", "branching"]).optional().describe("Filter by logical status"),
                 authorId: z.string().optional().describe("Filter by the authoring agent"),
             },
-            annotations: { readOnlyHint: true }
+            annotations: { readOnlyHint: true },
+            outputSchema: z.object({
+                content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+                structuredContent: z.object({
+                    nodes: z.array(z.any()),
+                    count: z.number()
+                }).optional(),
+                isError: z.boolean().optional()
+            })
         },
         async (filter: { executionState?: "queued" | "processing" | "done"; agentTarget?: string; status?: "active" | "validated" | "rejected" | "branching"; authorId?: string; }) => {
             try {
