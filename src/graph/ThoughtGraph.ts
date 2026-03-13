@@ -964,11 +964,37 @@ export class ThoughtGraph {
      * Clear all nodes and edges from the graph.
      * Resets the node counter.
      */
+    /**
+     * Clear all nodes and edges from the graph.
+     * Hard-resets both memory and disk state without merging.
+     */
     async clear(): Promise<void> {
         this.nodes.clear();
+        this.indexExecutionState.queued.clear();
+        this.indexExecutionState.processing.clear();
+        this.indexExecutionState.done.clear();
         this.edges = [];
         this.nodeCounter = 0;
-        await this.save();
+
+        if (this.persistencePath && fs.existsSync(this.persistencePath)) {
+            let releaseLock: (() => Promise<void>) | undefined;
+            try {
+                releaseLock = await lockfile.lock(this.persistencePath, { retries: { retries: 5 } });
+                const emptyState = JSON.stringify(this.getGraph(), null, 2);
+                fs.writeFileSync(this.persistencePath, emptyState, "utf-8");
+            } catch (error) {
+                console.error("Failed to clear disk state:", error);
+            } finally {
+                if (releaseLock) {
+                    try { await releaseLock(); } catch (e) { /* ignore release errors */ }
+                }
+            }
+        }
+
+        // Notify visualizer of the complete wipe
+        for (const listener of this.listeners) {
+            try { listener(); } catch (e) { console.error("Listener error", e); }
+        }
     }
 
     /**
