@@ -10,6 +10,7 @@ import fs from "node:fs";
 import * as lockfile from "proper-lockfile";
 import { randomUUID } from 'node:crypto';
 import path from "node:path";
+import { logger } from "../server/logger.js";
 import type {
     ThoughtNode,
     ThoughtEdge,
@@ -72,6 +73,9 @@ export class ThoughtGraph {
     };
 
     constructor(persistencePath?: string, limits?: Partial<GraphLimits>) {
+        this.nodes = new Map();
+        this.edges = [];
+        this.nodeCounter = 0;
         this.limits = { ...DEFAULT_GRAPH_LIMITS, ...limits };
         this.instancePrefix = randomUUID().split('-')[0];
 
@@ -89,9 +93,10 @@ export class ThoughtGraph {
     private setupWatcher(): void {
         if (!this.persistencePath) return;
 
-        // Poll every 1000ms. WatchFile is safer than fs.watch across operating systems for basic JSON sync.
-        fs.watchFile(this.persistencePath, { interval: 1000 }, (curr, prev) => {
+        // Poll every 500ms. WatchFile is safer than fs.watch across operating systems for basic JSON sync.
+        fs.watchFile(this.persistencePath, { interval: 500 }, (curr, prev) => {
             if (curr.mtime.getTime() !== prev.mtime.getTime()) {
+                logger.debug(`Persistence file changed for session, reloading graph...`);
                 this.load();
             }
         });
@@ -105,7 +110,7 @@ export class ThoughtGraph {
     private async save(): Promise<void> {
         // Broadcast to any attached UI listeners (WebSockets/SSE)
         for (const listener of this.listeners) {
-            try { listener(); } catch (e) { console.error("Listener error", e); }
+            try { listener(); } catch (e) { logger.error("Listener error", e); }
         }
 
         if (!this.persistencePath) return;
@@ -176,7 +181,7 @@ export class ThoughtGraph {
 
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            console.error(new ThoughtGraphPersistenceError('save', this.persistencePath, message).message);
+            logger.error(new ThoughtGraphPersistenceError('save', this.persistencePath, message).message);
         } finally {
             if (releaseLock) {
                 try { await releaseLock(); } catch (e) { /* ignore release errors */ }
@@ -228,12 +233,12 @@ export class ThoughtGraph {
             // CRITICAL: Notify listeners so cross-process mutations (from the MCP Host) 
             // instantly trigger Server-Sent Events in the visualizer Express bridge.
             for (const listener of this.listeners) {
-                try { listener(); } catch (e) { console.error("Listener error", e); }
+                try { listener(); } catch (e) { logger.error("Listener error", e); }
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             if ((error as any).code !== 'ELOCKED') {
-                console.error(new ThoughtGraphPersistenceError('load', this.persistencePath, message).message);
+                logger.error(new ThoughtGraphPersistenceError('load', this.persistencePath, message).message);
             }
             // If the file is transiently locked/corrupted during a cross-process write,
             // do NOT wipe the graph if we already have data. 
@@ -983,7 +988,7 @@ export class ThoughtGraph {
                 const emptyState = JSON.stringify(this.getGraph(), null, 2);
                 fs.writeFileSync(this.persistencePath, emptyState, "utf-8");
             } catch (error) {
-                console.error("Failed to clear disk state:", error);
+                logger.error("Failed to clear disk state:", error);
             } finally {
                 if (releaseLock) {
                     try { await releaseLock(); } catch (e) { /* ignore release errors */ }
@@ -993,7 +998,7 @@ export class ThoughtGraph {
 
         // Notify visualizer of the complete wipe
         for (const listener of this.listeners) {
-            try { listener(); } catch (e) { console.error("Listener error", e); }
+            try { listener(); } catch (e) { logger.error("Listener error", e); }
         }
     }
 
@@ -1051,7 +1056,7 @@ export class ThoughtGraph {
             await this.save(); // wait for save here since it's a massive overwrite
         } catch (error) {
             // If save fails, revert to backup
-            console.error("Failed to save snapshot, reverting to previous state:", error);
+            logger.error("Failed to save snapshot, reverting to previous state:", error);
             if (backupNodes) this.nodes = backupNodes;
             if (backupEdges) this.edges = backupEdges;
             // Note: nodeCounter might not be perfectly restored without a full snapshot of it
@@ -1456,7 +1461,7 @@ export class ThoughtGraph {
 
     /**
      * Export the validated reasoning path terminating at a specific node
-     * structured strictly for the standard @mcp:memory Knowledge Graph format.
+     * structured strictly for the standard `@mcp:memory` Knowledge Graph format.
      */
     exportProvenMemory(leafNodeId?: string) {
         const leaf = leafNodeId ? this.nodes.get(leafNodeId) : (() => {
@@ -1543,7 +1548,7 @@ const sessionRegistry = new Map<string, ThoughtGraph>();
  */
 export function getGraphInstance(sessionId: string = "default"): ThoughtGraph {
     if (!sessionRegistry.has(sessionId)) {
-        const stateDir = process.cwd();
+        const stateDir = process.env.THOUGHT_GRAPH_STATE_DIR || process.cwd();
         const filename = sessionId === "default"
             ? "thought-graph-state.json"
             : `thought-graph-state-${sessionId}.json`;

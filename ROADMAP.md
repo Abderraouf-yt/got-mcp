@@ -30,7 +30,10 @@ Our goal is to push beyond linear Chain-of-Thought and provide enterprise-grade 
 
 To elevate `got-mcp` to a $10k+ enterprise value, we are focusing on three massive architectural upgrades.
 
-
+### Priority 1: Framework A - Perspective Generation (Intent-to-Graph)
+* **Why**: Non-technical users struggle to "branch" their thoughts. They need an "Invisible Brain" to expand vague prompts.
+* **What**: Implement `generate_perspectives` to automatically turn "Help me choose a laptop" into a 3-branch analysis (Performance, Budget, Mobility).
+* **Impact**: Dramatically lowers the barrier to entry for GoT reasoning.
 
 ### Priority 2: Framework B - Native Knowledge Graph Persistence
 * **Why**: Currently, reasoning graphs are ephemeral and die when the session resets.

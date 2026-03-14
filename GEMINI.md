@@ -38,7 +38,7 @@ docs/assets/                  # Demo screenshots, state JSON, recordings
 
 > **⚠️ Stale references:** The old `tools/handlers.ts` and `tools/definitions.ts` files no longer exist. All tool logic is centralized in `src/server/mcp.ts` using inline Zod schemas.
 
-## 🧠 MCP Tools (19 total)
+## 🧠 MCP Tools (20 total)
 
 ### Core Tools (v1.0)
 | Tool | Description | Annotations |
@@ -47,6 +47,7 @@ docs/assets/                  # Demo screenshots, state JSON, recordings
 | `evaluate_thought` | Score/critique a node (0.0–1.0). Omit score → autonomous audit | `destructiveHint: true` |
 | `get_thought_graph` | Retrieve entire graph state as JSON | `readOnlyHint: true` |
 | `reset_graph` | Clear all nodes and edges | `destructiveHint: true` |
+| `generate_perspectives` | **NEW v4.3.0**: Auto-generate analytical seed nodes from a query | `readOnlyHint: true` |
 
 ### GoT Primitives (v3.0)
 | Tool | Description | Annotations |
@@ -70,8 +71,8 @@ docs/assets/                  # Demo screenshots, state JSON, recordings
 | `export_snapshot` | Full graph serialization for deterministic replay/recovery | `readOnlyHint: true` |
 | `restore_snapshot` | Replace graph state from previously exported JSON snapshot | `destructiveHint: true` |
 | `export_reasoning_trace` | Export winning path as Long CoT trace (DeepSeek-R1/o3 format) | `readOnlyHint: true` |
-| `export_proven_memory` | Export the validated reasoning path for @mcp:memory Knowledge Graph format | `readOnlyHint: true` |
-| `run_controller_loop` | Autonomous GoT orchestrator: seed → evaluate → branch → reflect → prune → converge | `destructiveHint: true` |
+| `export_proven_memory` | Export the validated reasoning path for `@mcp:memory` Knowledge Graph format | `readOnlyHint: true` |
+| `run_controller_loop` | Autonomous GoT loop. Supports `autoSeed: true` for zero-prompt branching | `destructiveHint: true` |
 | `compile_node_context` | SOTA Context Firewall: Compiles reasoning context filtering lateral branches | `readOnlyHint: true` |
 | `query_nodes` | Query and filter nodes by swarm orchestration fields (e.g., queued agent tasks) | `readOnlyHint: true` |
 

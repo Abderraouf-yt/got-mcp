@@ -78,10 +78,12 @@ export async function startHttpServer(): Promise<net.Server> {
     });
 
     app.get("/api/graph", (req, res) => {
-        res.json(getGraphInstance().getGraph());
+        const sessionId = (req.query.sessionId as string) || "default";
+        res.json(getGraphInstance(sessionId).getGraph());
     });
 
     app.get("/api/graph/stream", (req, res) => {
+        const sessionId = (req.query.sessionId as string) || "default";
         // Setup SSE headers
         res.writeHead(200, {
             "Content-Type": "text/event-stream",
@@ -89,7 +91,7 @@ export async function startHttpServer(): Promise<net.Server> {
             "Connection": "keep-alive",
         });
 
-        const graph = getGraphInstance();
+        const graph = getGraphInstance(sessionId);
 
         // Send the initial state immediately
         res.write(`data: ${JSON.stringify(graph.getGraph())}\n\n`);
@@ -106,7 +108,8 @@ export async function startHttpServer(): Promise<net.Server> {
     });
 
     app.get("/health", (req, res) => {
-        const graph = getGraphInstance();
+        const sessionId = (req.query.sessionId as string) || "default";
+        const graph = getGraphInstance(sessionId);
         res.json({
             status: "ok",
             name: SERVER_CONFIG.name,
@@ -116,6 +119,7 @@ export async function startHttpServer(): Promise<net.Server> {
             graph: {
                 nodes: graph.size,
                 edges: graph.edgeCount,
+                sessionId,
             },
         });
     });

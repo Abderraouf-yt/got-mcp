@@ -115,7 +115,7 @@ export interface GraphLimits {
  */
 export const DEFAULT_GRAPH_LIMITS: GraphLimits = {
     maxNodes: 1000,
-    maxBranchFactor: 10,
+    maxBranchFactor: 5,
     maxDepth: 30,
     maxThoughtLength: 5000,
     maxAggregationInputs: 10,
@@ -165,8 +165,8 @@ export const SERVER_CONFIG = {
  * Resource URIs used by the server.
  */
 export const RESOURCE_URIS = {
-    currentGraph: "@abderraouf-yt/got-mcp://current",
-    contextStore: "@abderraouf-yt/got-mcp://context",
+    currentGraph: "thought-graph://current",
+    contextStore: "thought-graph://context",
 } as const;
 
 /**
@@ -197,4 +197,13 @@ export interface ControllerLoopResult {
     trace: ReasoningTrace;
     metrics: GraphMetrics;
     iterationLog: IterationLog[];
+}
+
+/**
+ * Analytical perspective for seeding reasoning.
+ */
+export interface Perspective {
+    lens: string;
+    thought: string;
+    weight: number;
 }

@@ -96,12 +96,44 @@ export class ContextStore {
     }
 }
 
-// Singleton context store instance
-let contextInstance: ContextStore | null = null;
+// Session registry for isolated context stores
+const sessionRegistry = new Map<string, ContextStore>();
 
-export function getContextInstance(): ContextStore {
-    if (!contextInstance) {
-        contextInstance = new ContextStore();
+/**
+ * Get a ContextStore instance scoped to a session.
+ * Creates a new instance if one doesn't exist for this session.
+ * @param sessionId - Unique session identifier (defaults to "default")
+ */
+export function getContextInstance(sessionId: string = "default"): ContextStore {
+    if (!sessionRegistry.has(sessionId)) {
+        sessionRegistry.set(sessionId, new ContextStore());
     }
-    return contextInstance;
+    return sessionRegistry.get(sessionId)!;
+}
+
+/**
+ * Get all active session IDs.
+ */
+export function getSessionIds(): string[] {
+    return Array.from(sessionRegistry.keys());
+}
+
+/**
+ * Destroy a session's context instance and free resources.
+ */
+export function destroySession(sessionId: string): boolean {
+    const store = sessionRegistry.get(sessionId);
+    if (store) {
+        store.clear();
+        sessionRegistry.delete(sessionId);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Reset all session instances (useful for testing).
+ */
+export function resetContextInstance(): void {
+    sessionRegistry.clear();
 }

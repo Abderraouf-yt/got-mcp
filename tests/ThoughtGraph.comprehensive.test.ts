@@ -590,7 +590,7 @@ describe("Reasoning Trace Export", () => {
 // ==========================================
 // 10. MEMORY EXPORT (exportProvenMemory)
 // ==========================================
-describe("Memory Export (@mcp:memory format)", () => {
+describe("Memory Export (`@mcp:memory` format)", () => {
     test("should export entities and relations in KG format", async () => {
         const graph = new ThoughtGraph();
         const root = await graph.addNode("Root insight");

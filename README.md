@@ -169,7 +169,7 @@ The demo state ships with the repo in `docs/assets/demo-state.json`.
 <tr><td><code>context_get</code></td><td>Read value + source from shared context store</td><td>📦 v4.0</td></tr>
 <tr><td><code>context_list</code></td><td>List all context store entries and their sources</td><td>📦 v4.0</td></tr>
 <tr><td><code>export_reasoning_trace</code></td><td>Export winning path as Long CoT trace (DeepSeek-R1/o3 format)</td><td>📤 v4.0</td></tr>
-<tr><td><code>export_proven_memory</code></td><td>Export the validated reasoning path for @mcp:memory Knowledge Graph format</td><td>📤 v4.3</td></tr>
+<tr><td><code>export_proven_memory</code></td><td>Export the validated reasoning path for `@mcp:memory` Knowledge Graph format</td><td>📤 v4.3</td></tr>
 <tr><td><code>run_controller_loop</code></td><td>Autonomous GoT orchestrator: seed → evaluate → branch → reflect → prune → converge</td><td>🔄 v4.0</td></tr>
 <tr><td><code>compile_node_context</code></td><td>SOTA Context Firewall: Exact trace of a node, filtering lateral noise</td><td>🛡️ v4.2</td></tr>
 <tr><td><code>query_nodes</code></td><td>Swarm Task Discovery: Find nodes matching execution state and agent targets</td><td>🛡️ v4.2</td></tr>
