@@ -28,19 +28,31 @@ Our goal is to push beyond linear Chain-of-Thought and provide enterprise-grade 
 
 ## 🚀 The 2026 Horizons (Current Priorities)
 
-To elevate `got-mcp` to a $10k+ enterprise value, we are focusing on three massive architectural upgrades.
+To elevate `got-mcp` to a $10k+ enterprise value, we are focusing on four massive architectural upgrades (v5.0 Vision) and the launch of our specialized compliance vertical.
 
-### Priority 1: Framework A - Perspective Generation (Intent-to-Graph)
+### 🏆 The "Persistent Auditor" (SOC 2 Gap Analysis Service)
+| Phase | Task | Value |
+| :--- | :--- | :--- |
+| **Phase 1: Memory Link** | Implement **Native Knowledge Graph Persistence**. Use `export_proven_memory` to bridge GoT results into `@mcp:memory` for cross-session remediation tracking. | **Intelligence**: Enables "Cross-Session Reasoning." The auditor now has a memory. |
+| **Phase 2: Evidence Tool** | Create a specialized `ingest_evidence` tool that can feed AWS/Azure JSON exports into the graph. | **Efficiency**: Stops you from having to copy-paste data into the chat. |
+| **Phase 3: Gap Reporter** | Build a tool that transforms a "Winning Path" from the graph into a polished **SOC 2 Gap Analysis Report** (Markdown/PDF). | **Revenue**: This is the actual "product" we are selling as a service. |
+
+### Priority 1: Smart Seeding — Intent-to-Graph (In Progress)
 * **Why**: Non-technical users struggle to "branch" their thoughts. They need an "Invisible Brain" to expand vague prompts.
-* **What**: Implement `generate_perspectives` to automatically turn "Help me choose a laptop" into a 3-branch analysis (Performance, Budget, Mobility).
-* **Impact**: Dramatically lowers the barrier to entry for GoT reasoning.
+* **What**: Implement `generate_perspectives` tool. Uses **Delegation to Host Agent** + **Auto-Seeding** to automatically turn "Help me choose a laptop" into a 3-branch analysis.
+* **Impact**: Dramatically lowers the barrier to entry for GoT reasoning by "upskilling" vague prompts into multi-dimensional analysis.
 
-### Priority 2: Framework B - Native Knowledge Graph Persistence
+### Priority 2: The Memory Bridge — Native Knowledge Graph Persistence
 * **Why**: Currently, reasoning graphs are ephemeral and die when the session resets.
-* **What**: Integrate the `got-mcp` engine with the `@mcp:memory` server. Validated, high-scoring nodes will be extracted as entities/relations and committed to Long-Term Memory.
+* **What**: Implement `commit_to_memory` to bridge `export_proven_memory` results directly to the `@mcp:memory` server via `create_entities` and `create_relations`.
 * **Impact**: Enables **Cross-Session Reasoning**. An agent can run a GoT loop today, and another agent can query the verified conclusions next month.
 
-### Priority 3: Framework C - Swarm Multi-Agent Orchestration
+### Priority 3: Agentic Evaluation — Upgrading the Brain
+* **Why**: Current auto-scoring relies on basic heuristics (`estimateSpecificity`).
+* **What**: Integrate **Manara Red Pill** (System #4) logic into the `evaluate_thought` tool for deep architectural critique and System 2 reasoning feedback.
+* **Impact**: Significantly increases the logical accuracy and self-correction ability of the autonomous `run_controller_loop`.
+
+### Priority 4: Swarm Multi-Agent Orchestration
 * **Why**: Single-agent reasoning bottlenecks true non-linear problem solving.
-* **What**: Introduce a `contribute_thought(agentId, thought)` mechanism. Permit multiple specialized agents (e.g., a "Red Team" attacker and a "Blue Team" defender) to operate on the *same* DAG simultaneously.
+* **What**: Introduce a `contribute_thought(agentId, thought)` mechanism. Permit multiple specialized agents (e.g., a "Red Team" attacker and a "Blue Team" defender) to operate on the same DAG simultaneously.
 * **Impact**: Achieve true R1/o3 level architectural reasoning capabilities where agents debate and branch off each other's conclusions in real-time.

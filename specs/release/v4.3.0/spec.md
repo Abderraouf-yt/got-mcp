@@ -11,7 +11,7 @@ A tool to bridge the gap between non-technical user prompts and complex Graph of
 ## Requirements
 - Tool Name: `generate_perspectives`
 - Input: `query` (string), `count` (number, default 3, max 5)
-- Output: Array of perspective strings.
+- Output: Array of Perspective objects (`{ lens: string, thought: string, weight: number }`).
 - Integration: Can be used standalone or as a pre-processor for `run_controller_loop`.
 
 ## Use Cases

@@ -1,4 +1,4 @@
-# GEMINI.md — Thought Graph v4.3.0 (Source of Truth)
+﻿# GEMINI.md — Thought Graph v4.3.0 (Source of Truth)
 
 ## 🚀 Overview
 **Thought Graph** is a 2026-era MCP server implementing the **Graph of Thoughts (GoT)** reasoning pattern (Besta et al., 2023). It enables non-linear, recursive reasoning for AI agents through a DAG structure with branching, aggregation, pruning, and convergence.
