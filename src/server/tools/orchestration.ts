@@ -1,9 +1,52 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { ThoughtGraph, getGraphInstance } from "../../graph/index.js";
-import type { ConfidenceVector } from "../../types.js";
+import type { ConfidenceVector, ThoughtNode } from "../../types.js";
 import { logger } from "../logger.js";
 import { generateHeuristicPerspectives } from "./perspectives.js";
+
+/**
+ * High-signal security keys for recursive traversal.
+ */
+const HIGH_SIGNAL_KEYS = new Set([
+    "Effect", "Principal", "Action", "Resource", "Condition",
+    "PublicAccessBlockConfiguration", "BlockPublicAcls", "IgnorePublicAcls", 
+    "BlockPublicPolicy", "RestrictPublicBuckets",
+    "accessConfigurations", "ipConfigurations", "networkSecurityGroup", "networkSecurityGroups",
+    "access", "protocol", "destinationPortRange"
+]);
+
+/**
+ * Recursive JSON traversal for fact extraction.
+ * Fulfills FR-004 and FR-005.
+ */
+function extractFacts(obj: any, path: string = "$", results: { path: string, key: string, value: any }[] = []) {
+    if (!obj || typeof obj !== "object") return results;
+
+    for (const key in obj) {
+        const currentPath = `${path}.${key}`;
+        const value = obj[key];
+
+        if (HIGH_SIGNAL_KEYS.has(key)) {
+            results.push({ path: currentPath, key, value });
+        }
+
+        if (typeof value === "object") {
+            extractFacts(value, currentPath, results);
+        }
+    }
+    return results;
+}
+
+/**
+ * Provider detection heuristics.
+ * Fulfills FR-003.
+ */
+function detectProvider(jsonStr: string): "AWS" | "Azure" | "Unknown" {
+    if (jsonStr.includes("arn:aws") || jsonStr.includes("iam") || jsonStr.includes("AccountPublicAccessBlock")) return "AWS";
+    if (jsonStr.includes("/subscriptions/") || jsonStr.includes("resourceGroup") || jsonStr.includes("Microsoft.Network")) return "Azure";
+    return "Unknown";
+}
 
 export function registerOrchestrationTools(server: McpServer, defaultGraph: ThoughtGraph, notifyUpdate: (sessionId?: string) => void) {
     server.registerTool(
@@ -185,6 +228,81 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
                 };
             } catch (err) {
                 logger.error(`Error in query_nodes: ${err}`);
+                return { content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+            }
+        }
+    );
+
+    server.registerTool(
+        "ingest_evidence",
+        {
+            description: "Ingest raw infrastructure configuration data (AWS/Azure JSON) into the Thought Graph as verifiable Evidence Nodes.",
+            inputSchema: z.object({
+                rawJson: z.string().min(1).describe("The stringified JSON export from a cloud provider CLI or API."),
+                sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
+                provider: z.enum(["AWS", "Azure"]).optional().describe("Explicit cloud provider override"),
+            }),
+            annotations: { readOnlyHint: false, destructiveHint: false }
+        },
+        async ({ rawJson, sessionId, provider }) => {
+            try {
+                // T005: Input validation
+                let parsed: any;
+                try {
+                    parsed = JSON.parse(rawJson);
+                } catch (e) {
+                    return { content: [{ type: "text" as const, text: "Error: Invalid JSON input. Please provide a valid stringified JSON structure." }], isError: true };
+                }
+
+                const graph = sessionId ? getGraphInstance(sessionId) : defaultGraph;
+                const detectedProvider = provider || detectProvider(rawJson);
+                
+                logger.info(`Ingesting evidence. Provider: ${detectedProvider}, Session: ${sessionId || "default"}`);
+
+                // T004: Fact extraction
+                const facts = extractFacts(parsed);
+                const createdIds: string[] = [];
+
+                for (const fact of facts) {
+                    const valueStr = typeof fact.value === "string" ? fact.value : JSON.stringify(fact.value);
+                    const thought = `[${detectedProvider} Evidence] ${fact.key}: ${valueStr}`;
+                    
+                    const nodeId = await graph.addNode(thought);
+                    await graph.updateNode(nodeId, {
+                        metadata: {
+                            entityType: "CloudEvidence",
+                            provider: detectedProvider,
+                            sourcePath: fact.path,
+                            attribute: fact.key,
+                            lens: "Compliance"
+                        }
+                    });
+                    createdIds.push(nodeId);
+                }
+
+                // T016: Auto-linking (User Story 3)
+                // Link each new evidence node to an existing "Compliance" or "Security" perspective if present
+                const existingNodes = graph.getGraph().nodes;
+                const targetNodes = existingNodes.filter(n => 
+                    n.metadata?.entityType === "Perspective" && 
+                    (n.metadata?.lens === "Compliance" || n.metadata?.lens === "Security")
+                );
+
+                for (const evidenceId of createdIds) {
+                    for (const target of targetNodes) {
+                        await graph.addEdge(evidenceId, target.id, "supports");
+                    }
+                }
+
+                notifyUpdate(sessionId);
+
+                return {
+                    content: [{ type: "text" as const, text: `Successfully ingested ${createdIds.length} evidence nodes from ${detectedProvider}.` }],
+                    structuredContent: { count: createdIds.length, ids: createdIds, provider: detectedProvider }
+                };
+
+            } catch (err) {
+                logger.error(`Error in ingest_evidence: ${err}`);
                 return { content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
             }
         }
