@@ -554,10 +554,33 @@ export class ThoughtGraph {
     }
 
     /**
+     * Get all nodes in the winning path terminating at a specific node.
+     * Traverses backwards from leaf to root.
+     * @param leafNodeId - The ID of the leaf node to start from.
+     * @returns Array of ThoughtNodes in the path.
+     */
+    public getWinningPathNodes(leafNodeId: string): ThoughtNode[] {
+        const path: ThoughtNode[] = [];
+        let currentId: string | undefined = leafNodeId;
+
+        while (currentId) {
+            const node = this.nodes.get(currentId);
+            if (!node) break;
+            path.push(node);
+
+            // Find parent edge
+            const parentEdge = this.edges.find(e => e.to === currentId);
+            currentId = parentEdge?.from;
+        }
+
+        return path;
+    }
+
+    /**
      * Get the complete graph state as a serializable object.
      * @returns Full graph state with metadata
      */
-    getGraph(): GraphState {
+    public getGraph(): GraphState {
         return {
             nodes: Array.from(this.nodes.values()),
             edges: [...this.edges],

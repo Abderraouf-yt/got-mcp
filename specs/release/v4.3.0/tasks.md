@@ -73,7 +73,7 @@
 
 **Goal**: Allow perspectives to be used as initial thought nodes for the GoT reasoning loop.
 
-**Independent Test**: Run `run_controller_loop` with `autoBranch: true` and verify graph starts with generated perspectives.
+**Independent Test**: Run `run_controller_loop` with `autoSeed: true` and verify graph starts with generated perspectives.
 
 ### Tests for User Story 3
 
