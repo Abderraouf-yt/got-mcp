@@ -14,7 +14,7 @@ export type ThoughtStatus = "active" | "validated" | "rejected" | "branching";
 /**
  * Type of relationship between thought nodes.
  */
-export type ThoughtRelation = "refinement" | "contradiction" | "support" | "branch" | "aggregation" | "reflection";
+export type ThoughtRelation = "refinement" | "contradiction" | "support" | "branch" | "aggregation" | "reflection" | "supports" | "branches_to" | "aggregates" | "refines" | "contradicts";
 
 /**
  * A node in the thought graph representing a single unit of reasoning.

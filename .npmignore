@@ -3,12 +3,15 @@ src/
 visualizer/
 tests/
 docs/
+specs/
 .spec/
 .specify/
 .agent/
 .agents/
 .gemini/
 .github/
+ROADMAP.md
+CHANGELOG.md
 *.ts
 !dist/**/*.js
 !dist/**/*.d.ts
