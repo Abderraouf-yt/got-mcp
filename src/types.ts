@@ -90,6 +90,9 @@ export interface ThoughtEdge {
 export interface GraphState {
     nodes: ThoughtNode[];
     edges: ThoughtEdge[];
+    nodeCounter: number;
+    limits: GraphLimits;
+    timestamp: string;
     meta: {
         nodeCount: number;
         edgeCount: number;

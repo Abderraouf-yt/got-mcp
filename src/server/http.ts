@@ -58,10 +58,22 @@ export async function startHttpServer(): Promise<net.Server> {
 
     const activeSessions = new Map<string, SSEServerTransport>();
 
-    app.get("/sse", async (req, res) => {
-        const sessionId = `session_${crypto.randomUUID()}`;
+    app.post("/messages", async (req, res) => {
+        const sessionId = req.query.sessionId as string;
+        const transport = activeSessions.get(sessionId);
 
-        const transport = new SSEServerTransport("/messages", res);
+        if (!transport) {
+            res.status(404).send("Session not found");
+            return;
+        }
+
+        await transport.handlePostMessage(req, res);
+    });
+
+    app.get("/sse", async (req, res) => {
+        const sessionId = (req.query.sessionId as string) || `session_${crypto.randomUUID()}`;
+
+        const transport = new SSEServerTransport(`/messages?sessionId=${sessionId}`, res);
         const mcpServer = createServerInstance();
 
         activeSessions.set(sessionId, transport);
@@ -71,10 +83,6 @@ export async function startHttpServer(): Promise<net.Server> {
         });
 
         await mcpServer.connect(transport);
-    });
-
-    app.post("/messages", async (req, res) => {
-        res.status(200).json({ status: "received" });
     });
 
     app.get("/api/graph", (req, res) => {
