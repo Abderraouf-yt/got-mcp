@@ -1,0 +1,44 @@
+{
+  "tool": "generate_perspectives",
+  "description": "Automatically decompose a vague user query into 3-5 high-entropy analytical perspectives to seed a Graph of Thoughts reasoning session.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "The user's analytical query or problem statement."
+      },
+      "count": {
+        "type": "integer",
+        "minimum": 3,
+        "maximum": 5,
+        "default": 3,
+        "description": "Number of perspectives to generate."
+      },
+      "sessionId": {
+        "type": "string",
+        "description": "Optional: Automatically seed the graph in this session if intent is clear."
+      }
+    },
+    "required": ["query"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "perspectives": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "List of high-entropy reasoning axes."
+      },
+      "intentConfidence": {
+        "type": "number",
+        "description": "Confidence score of the intent analysis (0.0 to 1.0)."
+      },
+      "seedingStatus": {
+        "type": "string",
+        "enum": ["seeded", "returned_only", "ambiguous"],
+        "description": "Result of the graph integration step."
+      }
+    }
+  }
+}

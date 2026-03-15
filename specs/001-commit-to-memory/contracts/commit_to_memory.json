@@ -1,0 +1,42 @@
+{
+  "tool": "commit_to_memory",
+  "description": "Persist a validated Graph of Thoughts path to the long-term @mcp:memory Knowledge Graph server.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "nodeId": {
+        "type": "string",
+        "description": "The leaf node ID of the path to commit. If omitted, the highest-scoring converged path is used."
+      },
+      "sessionId": {
+        "type": "string",
+        "description": "Session ID for isolated reasoning paths."
+      },
+      "dryRun": {
+        "type": "boolean",
+        "default": false,
+        "description": "Preview the entities and relations that would be created without committing them."
+      },
+      "deduplicate": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable semantic identity check to prevent duplicate nodes in memory."
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "entitiesCreated": { "type": "number" },
+      "observationsAdded": { "type": "number" },
+      "relationsCreated": { "type": "number" },
+      "dryRunData": {
+        "type": "object",
+        "properties": {
+          "summary": { "type": "string" },
+          "payload": { "type": "object" }
+        }
+      }
+    }
+  }
+}
