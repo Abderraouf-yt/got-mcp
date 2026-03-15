@@ -22,12 +22,31 @@ export function registerContextTools(server: McpServer, defaultContextStore: Con
             })
         },
         async ({ key, value, source, sessionId }) => {
-            const contextStore = sessionId ? getContextInstance(sessionId) : defaultContextStore;
-            contextStore.set(key, value, source);
-            return {
-                content: [{ type: "text" as const, text: `Context set for ${sessionId || 'default'}: ${key} (source: ${source})` }],
-                structuredContent: { key, source, totalEntries: contextStore.size },
-            };
+            try {
+                const contextStore = sessionId ? getContextInstance(sessionId) : defaultContextStore;
+                
+                // Smart type detection: attempt to parse stringified JSON to preserve arrays/objects
+                let finalValue = value;
+                if (typeof value === 'string') {
+                    const trimmed = value.trim();
+                    if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+                        try {
+                            finalValue = JSON.parse(trimmed);
+                        } catch (e) {
+                            // If parsing fails, treat as a normal string
+                        }
+                    }
+                }
+
+                contextStore.set(key, finalValue, source);
+                return {
+                    content: [{ type: "text" as const, text: `Context set for ${sessionId || 'default'}: ${key} (source: ${source})` }],
+                    structuredContent: { key, source, totalEntries: contextStore.size },
+                };
+            } catch (err) {
+                logger.error(`Error in context_set: ${err}`);
+                return { content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+            }
         }
     );
 

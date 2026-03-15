@@ -580,10 +580,13 @@ export class ThoughtGraph {
      * Get the complete graph state as a serializable object.
      * @returns Full graph state with metadata
      */
-    public getGraph(): GraphState {
+    public getGraph(): GraphState & { nodeCounter: number; timestamp: string; limits: GraphLimits } {
         return {
             nodes: Array.from(this.nodes.values()),
             edges: [...this.edges],
+            nodeCounter: this.nodeCounter,
+            limits: { ...this.limits },
+            timestamp: new Date().toISOString(),
             meta: {
                 nodeCount: this.nodes.size,
                 edgeCount: this.edges.length,

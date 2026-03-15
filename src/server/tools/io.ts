@@ -45,7 +45,10 @@ export function registerIoTools(server: McpServer, defaultGraph: ThoughtGraph, n
                 const graph = sessionId ? getGraphInstance(sessionId) : defaultGraph;
                 const snapshot = graph.exportSnapshot();
                 return {
-                    content: [{ type: "text" as const, text: `Snapshot exported for ${sessionId || 'default'}: ${snapshot.nodes.length} nodes, ${snapshot.edges.length} edges at ${snapshot.timestamp}` }],
+                    content: [
+                        { type: "text" as const, text: `Snapshot exported for ${sessionId || 'default'}: ${snapshot.nodes.length} nodes, ${snapshot.edges.length} edges at ${snapshot.timestamp}\n\nUse the JSON below to restore this graph later:` },
+                        { type: "text" as const, text: `\`\`\`json\n${JSON.stringify(snapshot, null, 2)}\n\`\`\`` }
+                    ],
                     structuredContent: snapshot,
                 };
             } catch (err) {
