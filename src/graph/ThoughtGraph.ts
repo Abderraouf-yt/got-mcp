@@ -939,6 +939,9 @@ export class ThoughtGraph {
     getMetrics(): GraphMetrics {
         const allNodes = Array.from(this.nodes.values());
         const rejected = allNodes.filter(n => n.status === "rejected");
+        const softPruned = allNodes.filter(n => n.metadata?.pruneMode === "soft");
+        const totalPruned = rejected.length + softPruned.length;
+        
         const active = allNodes.filter(n => n.status === "active");
         const validated = allNodes.filter(n => n.status === "validated");
 
@@ -975,7 +978,7 @@ export class ThoughtGraph {
             maxDepth,
             avgScore,
             pruneRatio: allNodes.length > 0
-                ? Math.round((rejected.length / allNodes.length) * 100) / 100
+                ? Math.round((totalPruned / allNodes.length) * 100) / 100
                 : 0,
             rejectedCount: rejected.length,
             activeCount: active.length,
