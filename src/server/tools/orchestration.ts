@@ -7,32 +7,63 @@ import { generateHeuristicPerspectives } from "./perspectives.js";
 
 /**
  * High-signal security keys for recursive traversal.
+ * Updated per FR-004.
  */
 const HIGH_SIGNAL_KEYS = new Set([
     "Effect", "Principal", "Action", "Resource", "Condition",
     "PublicAccessBlockConfiguration", "BlockPublicAcls", "IgnorePublicAcls", 
     "BlockPublicPolicy", "RestrictPublicBuckets",
     "accessConfigurations", "ipConfigurations", "networkSecurityGroup", "networkSecurityGroups",
-    "access", "protocol", "destinationPortRange"
+    "access", "protocol", "destinationPortRange", "Statement"
 ]);
 
 /**
- * Recursive JSON traversal for fact extraction.
- * Fulfills FR-004 and FR-005.
+ * Sensitive keys for redaction.
+ * Fulfills FR-008.
  */
-function extractFacts(obj: any, path: string = "$", results: { path: string, key: string, value: any }[] = []) {
-    if (!obj || typeof obj !== "object") return results;
+const SENSITIVE_KEYS = new Set([
+    "Password", "Secret", "AccessKey", "SessionToken", "Credential",
+    "SecretAccessKey", "PrivateKey"
+]);
+
+/**
+ * Recursive JSON traversal for fact extraction with strict bounds.
+ * Fulfills FR-004, FR-005, and FR-008.
+ */
+function extractFactsRefined(
+    obj: any, 
+    path: string = "$", 
+    depth: number = 0, 
+    results: { path: string, key: string, value: any }[] = []
+) {
+    if (!obj || typeof obj !== "object" || depth > 10) {
+        if (depth > 10) {
+            results.push({ path, key: "N/A", value: "[DEPTH LIMIT REACHED]" });
+        }
+        return results;
+    }
 
     for (const key in obj) {
         const currentPath = `${path}.${key}`;
-        const value = obj[key];
+        let value = obj[key];
 
-        if (HIGH_SIGNAL_KEYS.has(key)) {
-            results.push({ path: currentPath, key, value });
+        // T007: Sanitization (FR-008)
+        if (SENSITIVE_KEYS.has(key)) {
+            results.push({ path: currentPath, key, value: "[REDACTED]" });
+            continue;
         }
 
-        if (typeof value === "object") {
-            extractFacts(value, currentPath, results);
+        if (HIGH_SIGNAL_KEYS.has(key)) {
+            // T004: Truncation (FR-005)
+            let processedValue = value;
+            if (typeof value === "string" && value.length > 512) {
+                processedValue = value.substring(0, 512) + "... [TRUNCATED]";
+            }
+            results.push({ path: currentPath, key, value: processedValue });
+        }
+
+        if (typeof value === "object" && value !== null) {
+            extractFactsRefined(value, currentPath, depth + 1, results);
         }
     }
     return results;
@@ -43,8 +74,9 @@ function extractFacts(obj: any, path: string = "$", results: { path: string, key
  * Fulfills FR-003.
  */
 function detectProvider(jsonStr: string): "AWS" | "Azure" | "Unknown" {
-    if (jsonStr.includes("arn:aws") || jsonStr.includes("iam") || jsonStr.includes("AccountPublicAccessBlock")) return "AWS";
-    if (jsonStr.includes("/subscriptions/") || jsonStr.includes("resourceGroup") || jsonStr.includes("Microsoft.Network")) return "Azure";
+    const lower = jsonStr.toLowerCase();
+    if (lower.includes("arn:aws") || lower.includes("iam") || lower.includes("accountpublicaccessblock")) return "AWS";
+    if (lower.includes("/subscriptions/") || lower.includes("resourcegroup") || lower.includes("microsoft.network")) return "Azure";
     return "Unknown";
 }
 
@@ -65,7 +97,7 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
                 refinedThought: z.string().max(5000).optional()
                     .describe("If critique reveals a flaw, provide the improved version to auto-branch"),
                 authorId: z.string().optional().describe("Which sub-agent explicitly evaluated this thought"),
-                agentTarget: z.string().optional().describe("Re-route to another specialized agent persona"),
+                agentTarget: z.string().optional().describe("Which specialized agent persona the thought is routed to"),
                 executionState: z.enum(["queued", "processing", "done"]).optional().describe("Update swarm fulfillment state"),
                 dependencies: z.array(z.string()).optional().describe("Update explicit node dependencies"),
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
@@ -236,7 +268,7 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
     server.registerTool(
         "ingest_evidence",
         {
-            description: "Ingest raw infrastructure configuration data (AWS/Azure JSON) into the Thought Graph as verifiable Evidence Nodes.",
+            description: "Ingest raw infrastructure configuration data (AWS/Azure JSON) into the Thought Graph as verifiable Evidence Nodes. Sanitizes secrets and enforces token limits.",
             inputSchema: z.object({
                 rawJson: z.string().min(1).describe("The stringified JSON export from a cloud provider CLI or API."),
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
@@ -246,21 +278,21 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
         },
         async ({ rawJson, sessionId, provider }) => {
             try {
-                // T005: Input validation
+                // T005: Input validation with standardized error (FR-007)
                 let parsed: any;
                 try {
                     parsed = JSON.parse(rawJson);
                 } catch (e) {
-                    return { content: [{ type: "text" as const, text: "Error: Invalid JSON input. Please provide a valid stringified JSON structure." }], isError: true };
+                    return { content: [{ type: "text" as const, text: "[IngestError] Invalid JSON structure. Please provide a valid stringified JSON." }], isError: true };
                 }
 
                 const graph = sessionId ? getGraphInstance(sessionId) : defaultGraph;
                 const detectedProvider = provider || detectProvider(rawJson);
                 
-                logger.info(`Ingesting evidence. Provider: ${detectedProvider}, Session: ${sessionId || "default"}`);
+                logger.info(`Refined Ingestion. Provider: ${detectedProvider}, Session: ${sessionId || "default"}`);
 
-                // T004: Fact extraction
-                const facts = extractFacts(parsed);
+                // T004 & T007: Refined extraction with sanitization and truncation
+                const facts = extractFactsRefined(parsed);
                 const createdIds: string[] = [];
 
                 for (const fact of facts) {
@@ -274,14 +306,14 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
                             provider: detectedProvider,
                             sourcePath: fact.path,
                             attribute: fact.key,
-                            lens: "Compliance"
+                            lens: "Compliance",
+                            sanitized: fact.value === "[REDACTED]"
                         }
                     });
                     createdIds.push(nodeId);
                 }
 
-                // T016: Auto-linking (User Story 3)
-                // Link each new evidence node to an existing "Compliance" or "Security" perspective if present
+                // T018: Auto-linking
                 const existingNodes = graph.getGraph().nodes;
                 const targetNodes = existingNodes.filter(n => 
                     n.metadata?.entityType === "Perspective" && 
@@ -297,13 +329,13 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
                 notifyUpdate(sessionId);
 
                 return {
-                    content: [{ type: "text" as const, text: `Successfully ingested ${createdIds.length} evidence nodes from ${detectedProvider}.` }],
+                    content: [{ type: "text" as const, text: `Successfully ingested ${createdIds.length} sanitized evidence nodes from ${detectedProvider}.` }],
                     structuredContent: { count: createdIds.length, ids: createdIds, provider: detectedProvider }
                 };
 
             } catch (err) {
                 logger.error(`Error in ingest_evidence: ${err}`);
-                return { content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+                return { content: [{ type: "text" as const, text: `[IngestError] ${err instanceof Error ? err.message : String(err)}` }], isError: true };
             }
         }
     );

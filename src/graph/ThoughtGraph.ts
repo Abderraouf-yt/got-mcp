@@ -1263,9 +1263,24 @@ export class ThoughtGraph {
         };
     }
 
-    // ==========================================
-    // v4.0: CONTROLLER LOOP — Autonomous GoT Cycle
-    // ==========================================
+    /**
+     * Synthesize a final conclusion from the winning path.
+     */
+    private synthesizeWinningPath(path: ThoughtNode[]): string {
+        if (path.length === 0) return "No conclusion reached";
+        if (path.length === 1) return path[0].thought;
+
+        const mainConclusion = path[path.length - 1].thought;
+        const evidenceNodes = path.slice(0, -1).filter(n => n.score > 0.6);
+        
+        if (evidenceNodes.length === 0) return mainConclusion;
+
+        const summary = evidenceNodes
+            .map(n => n.thought.substring(0, 100).trim() + (n.thought.length > 100 ? "..." : ""))
+            .join("; ");
+
+        return `Based on ${summary}, the final recommendation is: ${mainConclusion}`;
+    }
 
     /**
      * Controller Loop: Autonomous Graph of Thoughts reasoning cycle.
@@ -1373,11 +1388,20 @@ export class ThoughtGraph {
             const midTier = Array.from(this.nodes.values())
                 .filter(n => n.status === "active" && n.score >= autoPruneBelow && n.score < convergenceThreshold);
 
+            const branchPrompts = [
+                "Analyze the risks of: ",
+                "Explore technical trade-offs for: ",
+                "Compare alternatives to: ",
+                "Evaluate scalability of: ",
+                "Assess implementation cost for: "
+            ];
+
             for (const mid of midTier.slice(0, 3)) { // Limit branching to top 3
                 const existingChildren = this.edges.filter(e => e.from === mid.id).length;
                 if (existingChildren < this.limits.maxBranchFactor && this.nodes.size < this.limits.maxNodes - 5) {
                     try {
-                        const altId = await this.addNode(`[Alternative] What if we reconsider: ${mid.thought.substring(0, 200)}...`);
+                        const promptPrefix = branchPrompts[Math.floor(Math.random() * branchPrompts.length)];
+                        const altId = await this.addNode(`${promptPrefix}${mid.thought.substring(0, 150)}...`);
                         await this.addEdge(mid.id, altId, "branch");
                         await this.updateNode(altId, { score: 0.5, status: "active" });
                         branched++;
@@ -1448,9 +1472,7 @@ export class ThoughtGraph {
             winningPath: {
                 pathIds: finalPath.pathIds,
                 totalScore: finalPath.totalScore,
-                conclusion: finalPath.path.length > 0
-                    ? finalPath.path[finalPath.path.length - 1].thought
-                    : "No conclusion reached",
+                conclusion: this.synthesizeWinningPath(finalPath.path),
             },
             trace,
             metrics,
@@ -1472,17 +1494,25 @@ export class ThoughtGraph {
      * Higher specificity = more concrete, evidence-based reasoning.
      */
     private estimateSpecificity(thought: string): number {
-        let score = 0.3; // Base score
+        let score = 0.2; // Lower base to allow for more variance
 
         // Indicators of specific, evidence-based thinking
-        if (/\d+/.test(thought)) score += 0.1;           // Contains numbers
-        if (/vs\.?|versus|compared|better|worse/i.test(thought)) score += 0.1; // Comparisons
+        if (/\d+/.test(thought)) score += 0.15;           // Contains numbers
+        if (/vs\.?|versus|compared|better|worse/i.test(thought)) score += 0.15; // Comparisons
         if (/because|since|therefore|thus|hence/i.test(thought)) score += 0.1; // Causal reasoning
         if (/however|but|although|despite/i.test(thought)) score += 0.1;       // Nuance
         if (/example|specifically|for instance/i.test(thought)) score += 0.1;  // Concreteness
-        if (/\b(data|evidence|research|study|benchmark)\b/i.test(thought)) score += 0.1; // Evidence
+        if (/\b(data|evidence|research|study|benchmark)\b/i.test(thought)) score += 0.2; // Evidence
 
-        return Math.min(score, 1.0);
+        // Hallucination/Repetition Detection: Penalize repetitive phrases
+        const words = thought.toLowerCase().split(/\s+/);
+        const uniqueWords = new Set(words);
+        const repetitionRatio = words.length > 0 ? uniqueWords.size / words.length : 1;
+        
+        if (repetitionRatio < 0.5) score -= 0.4; // High repetition penalty
+        if (thought.includes("[Alternative] [Alternative]")) score -= 0.5; // Recursive garbage penalty
+
+        return Math.max(0, Math.min(score, 1.0));
     }
 
     /**
