@@ -1,0 +1,12 @@
+# Secret Sauce Ignore List
+.agent/
+.agents/
+.specify/
+.spec/
+.gemini/
+specs/
+ROADMAP.md
+CHANGELOG.md
+thought-graph-state*.json
+node_modules/
+dist/

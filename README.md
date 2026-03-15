@@ -37,7 +37,7 @@ Thought Graph is a [Model Context Protocol (MCP)](https://modelcontextprotocol.i
 ### 🛡️ 2026 Production Standards:
 Version 4.3.0+ introduces the **Bullet-Proof Reasoning** standard:
 - **Strict Session Isolation**: Multi-tenant ready with `sessionId` scoping.
-- **Audit Traceability**: Native support for ingesting and linking cloud infrastructure evidence (AWS/Azure).
+- **Audit Traceability**: Native support for ingesting and linking cloud infrastructure evidence (**CloudEvidence**).
 - **Persistent Memory**: Bridges reasoning results to the permanent Knowledge Graph via `@mcp:memory`.
 
 ---
@@ -47,7 +47,7 @@ Version 4.3.0+ introduces the **Bullet-Proof Reasoning** standard:
 ### Option 1: Install from npm
 
 ```bash
-npm install -g @abderraouf-yt/got-mcp
+npm install @abderraouf-yt/got-mcp
 ```
 
 ### Option 2: Clone & Build
@@ -65,7 +65,7 @@ npm install && npm run build
 | Tool | What it does | Category |
 | :--- | :--- | :--- |
 | `generate_perspectives` | **NEW**: Auto-seed vague prompts into 3-5 branches | 🧠 Seeding |
-| `ingest_evidence` | **NEW**: Parse AWS/Azure JSON into facts | 🛡️ Audit |
+| `ingest_evidence` | **NEW**: Parse AWS/Azure JSON into **CloudEvidence** | 🛡️ Audit |
 | `commit_to_memory` | **NEW**: Persist verified logic to KG | 💾 Persistence |
 | `run_controller_loop` | Autonomous GoT reasoning engine | 🔄 Orchestration |
 | `propose_thought` | Add a node with parent + relation | 🧠 Core |
@@ -73,9 +73,9 @@ npm install && npm run build
 | `aggregate_thoughts` | Merge 2+ nodes into a weighted synthesis | ⚡ GoT |
 | `prune_branch` | "Kill Switch" for hallucinations | ⚡ GoT |
 | `find_winning_path` | Beam search for the best reasoning path | ⚡ GoT |
-| `reflect_and_refine` | Self-correction loop (R1/o3 pattern) | 🔬 reflection |
-| `compile_node_context` | Context Firewall for multi-agent swarms | 🛡️ orchestration |
-| `query_nodes` | O(1) Swarm task discovery | 🛡️ orchestration |
+| `reflect_and_refine` | Self-correction loop (R1/o3 pattern) | 🔬 Reflection |
+| `compile_node_context` | Context Firewall for multi-agent swarms | 🛡️ Orchestration |
+| `query_nodes` | O(1) Swarm task discovery | 🛡️ Orchestration |
 | `export_reasoning_trace` | Export structured Long CoT trails | 📤 IO |
 | `get_thought_graph` | Retrieve the full DAG state | 🧠 Core |
 | `get_graph_metrics` | Graph health & governance stats | 📊 Ops |
@@ -96,8 +96,6 @@ Engine-level guards — enforced in the graph engine, not the tool layer:
 ---
 
 ## 📊 Visualizer
-
-**[🌐 Live Demo →](https://got-mcp-visualizer.netlify.app)**
 
 A React 19 dashboard with a **cyber-industrial UI** — real-time graph rendering via React Flow + Dagre layout.
 
