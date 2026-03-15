@@ -1268,21 +1268,38 @@ export class ThoughtGraph {
 
     /**
      * Synthesize a final conclusion from the winning path.
+     * Prevents recursive garbage by selecting distinct evidence nodes.
      */
     private synthesizeWinningPath(path: ThoughtNode[]): string {
         if (path.length === 0) return "No conclusion reached";
         if (path.length === 1) return path[0].thought;
 
         const mainConclusion = path[path.length - 1].thought;
-        const evidenceNodes = path.slice(0, -1).filter(n => n.score > 0.6);
         
-        if (evidenceNodes.length === 0) return mainConclusion;
+        // Filter out nodes that are purely structural or repetitive
+        const highQualityEvidence = path.slice(0, -1).filter(n => {
+            const isStructural = n.thought.toLowerCase().includes("analyze the risks") || 
+                                n.thought.toLowerCase().includes("explore technical trade-offs");
+            return n.score > 0.5 && !isStructural;
+        });
+        
+        if (highQualityEvidence.length === 0) return mainConclusion;
 
-        const summary = evidenceNodes
-            .map(n => n.thought.substring(0, 100).trim() + (n.thought.length > 100 ? "..." : ""))
-            .join("; ");
+        // Deduplicate similar thoughts in the evidence chain
+        const uniqueEvidence: string[] = [];
+        const seenWords = new Set<string>();
 
-        return `Based on ${summary}, the final recommendation is: ${mainConclusion}`;
+        for (const node of highQualityEvidence) {
+            const shortThought = node.thought.substring(0, 100).trim();
+            const firstWords = shortThought.toLowerCase().split(/\s+/).slice(0, 5).join(" ");
+            if (!seenWords.has(firstWords)) {
+                uniqueEvidence.push(shortThought + (node.thought.length > 100 ? "..." : ""));
+                seenWords.add(firstWords);
+            }
+        }
+
+        const summary = uniqueEvidence.join("; ");
+        return `Conclusion based on [${summary}]: ${mainConclusion}`;
     }
 
     /**
@@ -1350,16 +1367,14 @@ export class ThoughtGraph {
 
             for (const leaf of activeLeaves) {
                 // Auto-score based on thought quality heuristics:
-                // - Length factor: longer = more detailed (diminishing returns)
-                // - Depth factor: deeper = more refined thinking
-                // - Specificity: presence of numbers, comparisons, evidence markers
                 const depth = this.getNodeDepth(leaf.id);
-                const lengthScore = Math.min(leaf.thought.length / 500, 1.0);
-                const depthBonus = Math.min(depth * 0.05, 0.2);
+                const lengthScore = Math.min(leaf.thought.length / 400, 1.0); // 400 chars for full length bonus
+                const depthBonus = Math.min(depth * 0.1, 0.3); // Increased depth importance
                 const specificity = this.estimateSpecificity(leaf.thought);
 
+                // Base score increased to 0.2 to prevent stagnation
                 const autoScore = Math.min(
-                    Math.round((lengthScore * 0.3 + depthBonus + specificity * 0.5) * 100) / 100,
+                    Math.round((0.2 + lengthScore * 0.2 + depthBonus + specificity * 0.4) * 100) / 100,
                     1.0
                 );
 
