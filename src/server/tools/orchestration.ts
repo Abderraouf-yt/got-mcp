@@ -161,6 +161,7 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
                 prompt: z.string().min(1).max(5000).describe("The reasoning question or problem statement"),
                 thoughts: z.array(z.string().min(1).max(5000)).optional().describe("Initial thought branches to explore (1-10)"),
                 autoSeed: z.boolean().optional().default(false).describe("If true and 'thoughts' is empty, automatically generate initial perspectives"),
+                domainContext: z.string().optional().describe("Expert domain context for auto-seeding (e.g., 'Cybersecurity')"),
                 maxIterations: z.number().int().min(1).max(20).default(5).describe("Maximum reasoning cycles (default: 5)"),
                 convergenceThreshold: z.number().min(0).max(1).default(0.85).describe("Stop when best path average score exceeds this (default: 0.85)"),
                 autoPruneBelow: z.number().min(0).max(1).default(0.3).describe("Auto soft-prune branches scoring below this (default: 0.3)"),
@@ -170,15 +171,15 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
             annotations: { destructiveHint: true },
             outputSchema: z.object({}).passthrough()
         },
-        async ({ prompt, thoughts, autoSeed, maxIterations, convergenceThreshold, autoPruneBelow, beamWidth, sessionId }) => {
+        async ({ prompt, thoughts, autoSeed, domainContext, maxIterations, convergenceThreshold, autoPruneBelow, beamWidth, sessionId }) => {
             try {
                 const graph = sessionId ? getGraphInstance(sessionId) : defaultGraph;
                 
                 let initialThoughts = thoughts || [];
                 if (initialThoughts.length === 0 && autoSeed) {
-                    const perspectives = generateHeuristicPerspectives(prompt, 3);
+                    const perspectives = generateHeuristicPerspectives(prompt, 3, domainContext);
                     initialThoughts = perspectives.map(p => p.thought);
-                    logger.info(`Auto-seeding graph with ${initialThoughts.length} perspectives`);
+                    logger.info(`Auto-seeding graph with ${initialThoughts.length} perspectives (Domain: ${domainContext || 'Generic'})`);
                 }
 
                 const result = await graph.runControllerLoop(prompt, initialThoughts, {

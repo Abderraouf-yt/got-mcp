@@ -1,8 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { ThoughtGraph, getGraphInstance } from "../../graph/index.js";
+import { ThoughtGraph, getGraphInstance, SCHEMA_VERSION } from "../../graph/index.js";
 import { logger } from "../logger.js";
 import { createHash } from "node:crypto";
+import { STATE_VERSION } from "../../types.js";
 
 /**
  * Maps a GoT lens to an Antigravity 2026 Taxonomy type.
@@ -44,12 +45,19 @@ export function registerIoTools(server: McpServer, defaultGraph: ThoughtGraph, n
             try {
                 const graph = sessionId ? getGraphInstance(sessionId) : defaultGraph;
                 const snapshot = graph.exportSnapshot();
+                
+                const responseData = {
+                    ...snapshot,
+                    version: SCHEMA_VERSION,
+                    stateVersion: STATE_VERSION
+                };
+
                 return {
                     content: [
                         { type: "text" as const, text: `Snapshot exported for ${sessionId || 'default'}: ${snapshot.nodes.length} nodes, ${snapshot.edges.length} edges at ${snapshot.timestamp}\n\nUse the JSON below to restore this graph later:` },
-                        { type: "text" as const, text: `\`\`\`json\n${JSON.stringify(snapshot, null, 2)}\n\`\`\`` }
+                        { type: "text" as const, text: `\`\`\`json\n${JSON.stringify(responseData, null, 2)}\n\`\`\`` }
                     ],
-                    structuredContent: snapshot,
+                    structuredContent: responseData,
                 };
             } catch (err) {
                 logger.error(`Error in export_snapshot: ${err}`);

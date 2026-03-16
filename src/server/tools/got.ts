@@ -15,18 +15,60 @@ export function registerGotTools(server: McpServer, defaultGraph: ThoughtGraph, 
             outputSchema: z.object({
                 nodes: z.array(z.any()),
                 edges: z.array(z.any()),
-                nodeCounter: z.number(),
-                limits: z.any(),
-                timestamp: z.string()
+                nodeCount: z.number()
             })
         },
         async ({ sessionId }) => {
-            const graph = sessionId ? getGraphInstance(sessionId) : defaultGraph;
-            const graphState = graph.getGraph();
-            return {
-                content: [{ type: "text" as const, text: JSON.stringify(graphState, null, 2) }],
-                structuredContent: graphState as unknown as Record<string, unknown>
-            };
+            try {
+                const graph = sessionId ? getGraphInstance(sessionId) : defaultGraph;
+                const graphState = graph.getGraph();
+
+                // ✅ Convert Map → plain array, sanitize circular refs, strip undefined
+                const nodes = graphState.nodes.map(n => ({
+                    id: n.id,
+                    thought: n.thought ?? '',
+                    status: n.status ?? 'active',
+                    score: n.score ?? 0,
+                    confidence: n.confidence ?? null,
+                    authorId: n.authorId ?? null,
+                    agentTarget: n.agentTarget ?? null,
+                    executionState: n.executionState ?? null,
+                    dependencies: n.dependencies ?? [],
+                    metadata: n.metadata ?? {},
+                    createdAt: n.createdAt,
+                    updatedAt: n.updatedAt
+                }));
+
+                const edges = graphState.edges.map(e => ({
+                    from: e.from,
+                    to: e.to,
+                    relation: e.relation,
+                    createdAt: e.createdAt
+                }));
+
+                const responseData = {
+                    nodes,
+                    edges,
+                    nodeCount: nodes.length
+                };
+
+                return {
+                    content: [{
+                        type: "text" as const,
+                        text: JSON.stringify(responseData, null, 2)
+                    }],
+                    structuredContent: responseData
+                };
+            } catch (error) {
+                logger.error(`get_thought_graph failed: ${error}`);
+                return {
+                    isError: true,
+                    content: [{
+                        type: "text" as const,
+                        text: `get_thought_graph failed: ${error instanceof Error ? error.message : String(error)}`
+                    }]
+                };
+            }
         }
     );
 

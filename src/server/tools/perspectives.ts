@@ -41,7 +41,7 @@ const DOMAIN_KEYWORDS: Record<string, string> = {
 /**
  * Heuristic Perspective Generator
  */
-export function generateHeuristicPerspectives(query: string, count: number): Perspective[] {
+export function generateHeuristicPerspectives(query: string, count: number, domainContext?: string): Perspective[] {
     const lowerQuery = query.toLowerCase();
     let domain = "technical"; // default
 
@@ -56,10 +56,12 @@ export function generateHeuristicPerspectives(query: string, count: number): Per
     const lenses = LENS_TAXONOMY[domain] || LENS_TAXONOMY.technical;
     const perspectives: Perspective[] = [];
 
+    const contextPrefix = domainContext ? `[Expert: ${domainContext}] ` : "";
+
     for (let i = 0; i < Math.min(count, lenses.length); i++) {
         perspectives.push({
             lens: lenses[i],
-            thought: `${lenses[i]} perspective on: ${query}`,
+            thought: `${contextPrefix}${lenses[i]} perspective on: ${query}`,
             weight: 0.5
         });
     }
@@ -86,6 +88,7 @@ export function registerPerspectivesTools(server: McpServer, defaultGraph: Thoug
                 query: z.string().min(1).describe("The user's vague or short analytical query"),
                 count: z.number().int().min(1).max(5).default(3).describe("Number of perspectives to generate (1-5)"),
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
+                domainContext: z.string().optional().describe("Expert domain context (e.g., 'Cybersecurity')"),
             }),
             outputSchema: z.object({
                 perspectives: z.array(z.object({
@@ -95,11 +98,11 @@ export function registerPerspectivesTools(server: McpServer, defaultGraph: Thoug
                 }))
             })
         },
-        async ({ query, count, sessionId }) => {
+        async ({ query, count, sessionId, domainContext }) => {
             try {
-                logger.info(`Generating ${count} perspectives for query: "${query}"`);
+                logger.info(`Generating ${count} perspectives for query: "${query}" (Domain: ${domainContext || 'Generic'})`);
                 
-                const perspectives = generateHeuristicPerspectives(query, count);
+                const perspectives = generateHeuristicPerspectives(query, count, domainContext);
 
                 return {
                     content: [{ type: "text" as const, text: `Generated ${perspectives.length} perspectives for domain.` }],

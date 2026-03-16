@@ -9,4 +9,5 @@ export {
     getSessionIds,
     destroySession,
     resetGraphInstance,
+    SCHEMA_VERSION,
 } from "./ThoughtGraph.js";

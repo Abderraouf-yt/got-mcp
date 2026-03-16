@@ -10,6 +10,7 @@ import fs from "node:fs";
 import * as lockfile from "proper-lockfile";
 import { randomUUID } from 'node:crypto';
 import path from "node:path";
+import { createRequire } from "module";
 import { logger } from "../server/logger.js";
 import type {
     ThoughtNode,
@@ -25,7 +26,11 @@ import type {
     ControllerLoopResult,
     IterationLog,
 } from "../types.js";
-import { DEFAULT_GRAPH_LIMITS } from "../types.js";
+import { DEFAULT_GRAPH_LIMITS, SERVER_CONFIG, STATE_VERSION } from "../types.js";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../../package.json");
+export const SCHEMA_VERSION = pkg.version;
 
 /**
  * Custom Errors for strict error handling
@@ -1059,8 +1064,8 @@ export class ThoughtGraph {
             edges: [...this.edges],
             nodeCounter: this.nodeCounter,
             timestamp: new Date().toISOString(),
-            version: "3.0.0",
-            stateVersion: this.stateVersion,
+            version: SCHEMA_VERSION,
+            stateVersion: STATE_VERSION,
         };
     }
 
@@ -1068,7 +1073,16 @@ export class ThoughtGraph {
      * Restore graph state from a snapshot.
      * Completely replaces current state for deterministic replay.
      */
-    async restoreSnapshot(snapshot: { nodes: ThoughtNode[]; edges: ThoughtEdge[]; nodeCounter: number }): Promise<void> {
+    async restoreSnapshot(snapshot: { nodes: ThoughtNode[]; edges: ThoughtEdge[]; nodeCounter: number, version?: string, stateVersion?: number }): Promise<void> {
+        // FR-009: Reject snapshots with MAJOR version mismatches
+        if (snapshot.version) {
+            const snapshotMajor = snapshot.version.split('.')[0];
+            const currentMajor = SCHEMA_VERSION.split('.')[0];
+            if (snapshotMajor !== currentMajor) {
+                throw new ThoughtGraphError(`Incompatible snapshot version: ${snapshot.version}. Current major version is ${currentMajor}.`);
+            }
+        }
+
         let backupNodes: Map<string, ThoughtNode> | undefined;
         let backupEdges: ThoughtEdge[] | undefined;
 
@@ -1271,37 +1285,37 @@ export class ThoughtGraph {
      * Prevents recursive garbage by selecting distinct evidence nodes.
      */
     private synthesizeWinningPath(path: ThoughtNode[]): string {
-        if (path.length === 0) return "No conclusion reached";
+        if (path.length === 0) return "No validated reasoning path was found to reach a conclusion.";
         if (path.length === 1) return path[0].thought;
 
         const mainConclusion = path[path.length - 1].thought;
-        
+
         // Filter out nodes that are purely structural or repetitive
         const highQualityEvidence = path.slice(0, -1).filter(n => {
-            const isStructural = n.thought.toLowerCase().includes("analyze the risks") || 
-                                n.thought.toLowerCase().includes("explore technical trade-offs");
-            return n.score > 0.5 && !isStructural;
+            const isStructural = n.thought.toLowerCase().includes("analyze the risks") ||
+                                n.thought.toLowerCase().includes("explore technical trade-offs") ||
+                                n.thought.toLowerCase().includes("compare alternatives");
+            return n.score > 0.4 && !isStructural;
         });
-        
+
         if (highQualityEvidence.length === 0) return mainConclusion;
 
-        // Deduplicate similar thoughts in the evidence chain
+        // Deduplicate similar thoughts in the evidence chain with higher precision
         const uniqueEvidence: string[] = [];
         const seenWords = new Set<string>();
 
         for (const node of highQualityEvidence) {
-            const shortThought = node.thought.substring(0, 100).trim();
-            const firstWords = shortThought.toLowerCase().split(/\s+/).slice(0, 5).join(" ");
+            const shortThought = node.thought.substring(0, 500).trim();
+            const firstWords = shortThought.toLowerCase().split(/\s+/).slice(0, 8).join(" ");
             if (!seenWords.has(firstWords)) {
-                uniqueEvidence.push(shortThought + (node.thought.length > 100 ? "..." : ""));
+                uniqueEvidence.push(shortThought + (node.thought.length > 500 ? "..." : ""));
                 seenWords.add(firstWords);
             }
         }
 
-        const summary = uniqueEvidence.join("; ");
-        return `Conclusion based on [${summary}]: ${mainConclusion}`;
+        const summary = uniqueEvidence.join("\n- ");
+        return `### Final Conclusion\n${mainConclusion}\n\n### Supporting Evidence Path\n- ${summary}`;
     }
-
     /**
      * Controller Loop: Autonomous Graph of Thoughts reasoning cycle.
      *

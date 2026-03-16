@@ -1,9 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createRequire } from "module";
 import { SERVER_CONFIG, RESOURCE_URIS } from "../types.js";
 import { getGraphInstance } from "../graph/index.js";
 import { getContextInstance } from "../context/index.js";
 import { registerAllTools } from "./tools/index.js";
 import { logger } from "./logger.js";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../../package.json");
+const version = pkg.version;
 
 /**
  * Creates and configures the MCP Server instance with modern tool/resource registration.
@@ -12,7 +17,7 @@ import { logger } from "./logger.js";
 export function createServerInstance(): McpServer {
     const server = new McpServer({
         name: SERVER_CONFIG.name,
-        version: SERVER_CONFIG.version,
+        version: version,
     });
 
     const graph = getGraphInstance();

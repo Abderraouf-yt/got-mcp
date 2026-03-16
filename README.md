@@ -64,10 +64,10 @@ npm install && npm run build
 
 | Tool | What it does | Category |
 | :--- | :--- | :--- |
-| `generate_perspectives` | **NEW**: Auto-seed vague prompts into 3-5 branches | 🧠 Seeding |
-| `ingest_evidence` | **NEW**: Parse AWS/Azure JSON into **CloudEvidence** | 🛡️ Audit |
-| `commit_to_memory` | **NEW**: Persist verified logic to KG | 💾 Persistence |
-| `run_controller_loop` | Autonomous GoT reasoning engine | 🔄 Orchestration |
+| `generate_perspectives` | **NEW**: Auto-seed vague prompts into 3-5 branches. Supports `domainContext`. | 🧠 Seeding |
+| `ingest_evidence` | **NEW**: Parse AWS/Azure JSON into **CloudEvidence** sanitized facts. | 🛡️ Audit |
+| `commit_to_memory` | **NEW**: Persist verified logic to KG with versioning checks. | 💾 Persistence |
+| `run_controller_loop` | Autonomous GoT engine with `autoSeed` and `domainContext`. | 🔄 Orchestration |
 | `propose_thought` | Add a node with parent + relation | 🧠 Core |
 | `evaluate_thought` | Score (0.0–1.0) + multi-axis confidence | 🧠 Core |
 | `aggregate_thoughts` | Merge 2+ nodes into a weighted synthesis | ⚡ GoT |

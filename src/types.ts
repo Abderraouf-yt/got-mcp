@@ -47,6 +47,11 @@ export interface ConfidenceVector {
 }
 
 /**
+ * Current schema and state versions for snapshot compatibility.
+ */
+export const STATE_VERSION = 11; // Integer — increment on breaking state changes
+
+/**
  * A single step in an exported reasoning trace.
  */
 export interface ReasoningStep {
@@ -114,7 +119,7 @@ export interface GraphLimits {
 }
 
 /**
- * Default governance limits per v3.0 Production Constitution.
+ * Default governance limits per v4.3 Production Constitution (2026).
  */
 export const DEFAULT_GRAPH_LIMITS: GraphLimits = {
     maxNodes: 1000,
@@ -157,10 +162,11 @@ export interface GraphMetrics {
 
 /**
  * Server configuration constants.
+ * Note: version is updated dynamically in mcp.ts
  */
 export const SERVER_CONFIG = {
     name: "@abderraouf-yt/got-mcp",
-    version: "4.3.0",
+    version: "4.3.1", // Fallback, will be overridden in McpServer constructor
     description: "Graph of Thoughts (GoT) MCP Server — bounded, auditable reasoning with self-reflection and shared context",
 } as const;
 
