@@ -1,14 +1,14 @@
-﻿# GEMINI.md — Thought Graph v4.3.0 (Source of Truth)
+﻿# GEMINI.md — Thought Graph v4.4.0 (Source of Truth)
 
 ## 🚀 Overview
 **Thought Graph** is a 2026-era MCP server implementing the **Graph of Thoughts (GoT)** reasoning pattern (Besta et al., 2023). It enables non-linear, recursive reasoning for AI agents through a DAG structure with branching, aggregation, pruning, and convergence.
 
-**Version:** 4.3.0 | **License:** MIT | **Transport:** Stdio + HTTP Bridge
+**Version:** 4.4.0 | **License:** MIT | **Transport:** Stdio + HTTP Bridge
 
 ## 🛠 Tech Stack
 | Component | Technology |
 |-----------|-----------|
-| **Server** | TypeScript, Node.js v20+, `@modelcontextprotocol/sdk` ^1.26, Express, Zod 4.3.6 |
+| **Server** | TypeScript, Node.js v20+, `@modelcontextprotocol/sdk` ^1.26, Express, Zod 4.3.6, pdfmake, Handlebars, marked |
 | **Visualizer** | React 19, Vite 7, `@xyflow/react`, Dagre, SWR, Lucide Icons |
 | **State** | In-memory DAG with JSON file persistence + `fs.watchFile` cross-process sync |
 | **Transport** | Stdio (IDE agents) + HTTP Bridge :3001 (visualizer) |
@@ -19,8 +19,15 @@
 src/
 ├── index.ts                  # Bootstrap: Stdio MCP + Express HTTP bridge
 ├── server/
-│   ├── mcp.ts                # Tool & resource registration (19 tools, 2 resources)
-│   └── http.ts               # Express REST API + CORS for visualizer
+│   ├── mcp.ts                # Main MCP registration logic
+│   ├── http.ts               # Express REST API + CORS for visualizer
+│   └── tools/                # Specialized tool modules (21 tools total)
+│       ├── core.ts           # Basic lifecycle & graph management
+│       ├── got.ts            # Besta et al. (2023) reasoning primitives
+│       ├── context.ts        # Shared context store & provenance
+│       ├── orchestration.ts  # Swarm tasks & task discovery
+│       ├── perspectives.ts   # System 2 intent upskilling
+│       └── reporter.ts       # Professional PDF/Markdown Gap Reports
 ├── graph/
 │   ├── ThoughtGraph.ts       # Core DAG engine (GoT primitives)
 │   └── index.ts              # Singleton export via getGraphInstance()
@@ -38,7 +45,7 @@ docs/assets/                  # Demo screenshots, state JSON, recordings
 
 > **⚠️ Stale references:** The old `tools/handlers.ts` and `tools/definitions.ts` files no longer exist. All tool logic is centralized in `src/server/mcp.ts` using inline Zod schemas.
 
-## 🧠 MCP Tools (20 total)
+## 🧠 MCP Tools (21 total)
 
 ### Core Tools (v1.0)
 | Tool | Description | Annotations |
@@ -76,6 +83,11 @@ docs/assets/                  # Demo screenshots, state JSON, recordings
 | `compile_node_context` | SOTA Context Firewall: Compiles reasoning context filtering lateral branches | `readOnlyHint: true` |
 | `query_nodes` | Query and filter nodes by swarm orchestration fields (e.g., queued agent tasks) | `readOnlyHint: true` |
 
+### Reporting & Analysis (v4.4.0)
+| Tool | Description | Annotations |
+|------|-------------|-------------|
+| `generate_gap_report` | **NEW v4.4.0**: Transform winning reasoning paths into professional SOC 2 Gap Analysis PDFs/Markdown | `readOnlyHint: true` |
+
 ### MCP Resources
 | URI | Description |
 |-----|-------------|
@@ -107,7 +119,7 @@ npm run dev                     # Vite dev server (:5173)
 npm run build                   # Must compile first
 npx tsx --test tests/           # Run unit tests
 ```
-> **Coverage:** 56 tests across 15 suites (100% passing). Tests cover Governance, Aggregation, Pruning, Beam Search, Reflection, Context Firewall, Swarm Orchestration, Snapshots, Memory Export, Controller Loop, Session Isolation, Context Store, and Graph Metrics.
+> **Coverage:** 59 tests across 16 suites (100% passing). Tests cover Governance, Aggregation, Pruning, Beam Search, Reflection, Context Firewall, Swarm Orchestration, Snapshots, Memory Export, Controller Loop, Session Isolation, Context Store, Graph Metrics, and Professional Reporting (PDF/MD).
 
 ## 📜 Conventions & Standards
 

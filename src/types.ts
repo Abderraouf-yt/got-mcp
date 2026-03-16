@@ -210,3 +210,40 @@ export interface Perspective {
     thought: string;
     weight: number;
 }
+
+/**
+ * A single gap identified during reasoning.
+ * Mapped from rejected nodes or low-score path branches.
+ */
+export interface GapItem {
+    id: string;
+    title: string;
+    description: string;
+    remediation: string;
+    category: string;
+    severity: "low" | "medium" | "high" | "critical";
+    evidence?: {
+        path: string;
+        attribute?: string;
+        value?: any;
+    }[];
+}
+
+/**
+ * Structured Gap Analysis report.
+ * Can be exported as Markdown or PDF.
+ */
+export interface GapReport {
+    sessionId: string;
+    title: string;
+    executiveSummary: string;
+    readinessScore: number;
+    gaps: GapItem[];
+    winningPathIds: string[];
+    generatedAt: string;
+    metadata: {
+        totalNodes: number;
+        totalGaps: number;
+        methodology: string;
+    };
+}

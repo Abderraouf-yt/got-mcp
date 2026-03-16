@@ -1,0 +1,31 @@
+﻿# Executive SOC 2 Readiness Report
+**Organization**: SOC 2 Assessment Service
+**Date**: {{generatedAt}}
+**Overall Readiness Score**: {{readinessScore}}%
+
+## 1. Executive Summary
+{{executiveSummary}}
+
+## 2. Key Findings Summary
+The following critical gaps were identified during the automated reasoning process:
+
+| Severity | Category | Finding | Remediation Priority |
+|----------|----------|---------|----------------------|
+{{#each gaps}}
+| {{severity}} | {{category}} | {{title}} | {{severity}} |
+{{/each}}
+
+## 3. High-Level Remediation Roadmap
+{{#each gaps}}
+- **{{title}}**: {{remediation}}
+{{/each}}
+
+## 4. Methodology & Assurance
+{{metadata.methodology}}
+
+**Assessment Stats:**
+- Total Controls Analyzed: {{metadata.totalNodes}}
+- Compliance Gaps: {{metadata.totalGaps}}
+
+---
+*Powered by findiacs | Professional Compliance Intelligence*
