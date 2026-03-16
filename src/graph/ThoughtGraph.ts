@@ -1272,15 +1272,26 @@ export class ThoughtGraph {
      */
     private synthesizeWinningPath(path: ThoughtNode[]): string {
         if (path.length === 0) return "No conclusion reached";
-        if (path.length === 1) return path[0].thought;
+        
+        // Filter out reflection nodes for the main conclusion
+        const nonReflectionNodes = path.filter(n => !n.thought.startsWith("[Reflection]"));
+        
+        if (nonReflectionNodes.length === 0) {
+            return path[path.length - 1].thought;
+        }
 
-        const mainConclusion = path[path.length - 1].thought;
+        const mainConclusion = nonReflectionNodes[nonReflectionNodes.length - 1].thought;
         
         // Filter out nodes that are purely structural or repetitive
-        const highQualityEvidence = path.slice(0, -1).filter(n => {
+        // And also exclude the node we just picked as mainConclusion
+        const highQualityEvidence = path.filter(n => {
+            if (n.thought === mainConclusion) return false;
+            
             const isStructural = n.thought.toLowerCase().includes("analyze the risks") || 
                                 n.thought.toLowerCase().includes("explore technical trade-offs");
-            return n.score > 0.5 && !isStructural;
+            const isReflection = n.thought.startsWith("[Reflection]");
+            
+            return n.score > 0.5 && !isStructural && !isReflection;
         });
         
         if (highQualityEvidence.length === 0) return mainConclusion;
@@ -1297,6 +1308,8 @@ export class ThoughtGraph {
                 seenWords.add(firstWords);
             }
         }
+
+        if (uniqueEvidence.length === 0) return mainConclusion;
 
         const summary = uniqueEvidence.join("; ");
         return `Conclusion based on [${summary}]: ${mainConclusion}`;
