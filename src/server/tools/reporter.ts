@@ -10,33 +10,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { BRAND_CONFIG, resolveFontPaths } from "../../brand/index.js";
+import { GapReportSchema } from "./schemas.js";
 
 const require = createRequire(import.meta.url);
 const PdfPrinter = require("pdfmake/js/printer").default;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// pdfmake font configuration
-const fonts = {
-    Roboto: {
-        normal: path.join(process.cwd(), "node_modules/pdfmake/fonts/Roboto/Roboto-Regular.ttf"),
-        bold: path.join(process.cwd(), "node_modules/pdfmake/fonts/Roboto/Roboto-Medium.ttf"),
-        italics: path.join(process.cwd(), "node_modules/pdfmake/fonts/Roboto/Roboto-Italic.ttf"),
-        bolditalics: path.join(process.cwd(), "node_modules/pdfmake/fonts/Roboto/Roboto-MediumItalic.ttf")
-    },
-    RoyalSerif: {
-        normal: "C:\\Users\\toumi\\Pictures\\Fonts\\Royal-Serif.otf",
-        bold: "C:\\Users\\toumi\\Pictures\\Fonts\\Royal-Serif.otf",
-        italics: "C:\\Users\\toumi\\Pictures\\Fonts\\Royal-Serif.otf",
-        bolditalics: "C:\\Users\\toumi\\Pictures\\Fonts\\Royal-Serif.otf",
-    },
-    Morgan: {
-        normal: "C:\\Users\\toumi\\Pictures\\Fonts\\Morgan44-Regular.ttf",
-        bold: "C:\\Users\\toumi\\Pictures\\Fonts\\Morgan44-Regular.ttf",
-        italics: "C:\\Users\\toumi\\Pictures\\Fonts\\Morgan44-Regular.ttf",
-        bolditalics: "C:\\Users\\toumi\\Pictures\\Fonts\\Morgan44-Regular.ttf",
-    }
-};
+// Resolve portable font paths with graceful fallback
+const fonts = resolveFontPaths();
 
 /**
  * Register reporter tools for Gap Analysis.
@@ -53,7 +36,9 @@ export function registerReporterTools(server: McpServer, defaultGraph: ThoughtGr
                 title: z.string().optional().describe("Custom report title"),
             }),
             annotations: { readOnlyHint: true },
-            outputSchema: z.any() // Structured GapReport
+            outputSchema: GapReportSchema.extend({
+                pdfBase64: z.string().optional().describe("Base64 encoded PDF content (only if format is 'pdf')")
+            })
         },
         async (args) => {
             return await generateGapReportHandler(args, defaultGraph);
@@ -223,7 +208,7 @@ async function renderMarkdown(report: GapReport, template: string): Promise<stri
     const templatePath = path.join(process.cwd(), "src/server/templates", filename);
     const source = fs.readFileSync(templatePath, "utf-8");
     const hbsTemplate = Handlebars.compile(source);
-    return hbsTemplate(report);
+    return hbsTemplate({ ...report, brand: BRAND_CONFIG });
 }
 
 async function renderPdf(report: GapReport, template: string): Promise<Buffer> {
@@ -249,7 +234,7 @@ async function renderPdf(report: GapReport, template: string): Promise<Buffer> {
                     {
                         type: 'rect',
                         x: 0, y: 0, w: pageSize.width, h: 5,
-                        color: '#0F172A' // findiacs Navy
+                        color: BRAND_CONFIG.colors.primary
                     }
                 ]
             };
@@ -257,7 +242,7 @@ async function renderPdf(report: GapReport, template: string): Promise<Buffer> {
         footer: function(currentPage: number, pageCount: number) {
             return {
                 columns: [
-                    { text: "Powered by findiacs | Professional Compliance Intelligence", style: "footerText", alignment: "left", margin: [40, 0] },
+                    { text: `Powered by ${BRAND_CONFIG.identity.name} | ${BRAND_CONFIG.identity.tagline}`, style: "footerText", alignment: "left", margin: [40, 0] },
                     { text: `Page ${currentPage} of ${pageCount}`, style: "footerText", alignment: "right", margin: [40, 0] }
                 ]
             };
@@ -266,12 +251,12 @@ async function renderPdf(report: GapReport, template: string): Promise<Buffer> {
             { 
                 columns: [
                     { text: report.title, style: "header", width: '*' },
-                    { text: "findiacs", style: "brandLogo", width: 'auto' }
+                    { text: BRAND_CONFIG.identity.logoText, style: "brandLogo", width: 'auto' }
                 ]
             },
             { text: `Generated on: ${new Date(report.generatedAt).toLocaleString()}`, style: "subheader" },
             { 
-                canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1, lineColor: '#334155' }]
+                canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1, lineColor: BRAND_CONFIG.colors.muted }]
             },
             { text: `Readiness Score: ${report.readinessScore}%`, style: "score", margin: [0, 15, 0, 20] },
             
@@ -308,7 +293,7 @@ async function renderPdf(report: GapReport, template: string): Promise<Buffer> {
                 { text: "Description", style: "findingLabel" },
                 { text: g.description, style: "bodyText" },
                 { text: "Remediation Recommendation", style: "findingLabel" },
-                { text: g.remediation, color: "#0369A1", italics: true, style: "bodyText" },
+                { text: g.remediation, color: BRAND_CONFIG.colors.secondary, italics: true, style: "bodyText" },
                 { text: "Evidence Lineage", style: "findingLabel" },
                 { 
                     ul: g.evidence?.map(e => ({ text: `${e.path}: ${e.attribute} = ${JSON.stringify(e.value)}`, style: "evidenceText" })) || ["No direct evidence linked"]
@@ -316,25 +301,25 @@ async function renderPdf(report: GapReport, template: string): Promise<Buffer> {
             ]),
             
             { text: "4. Methodology", style: "sectionHeader" },
-            { text: report.metadata.methodology, italics: true, fontSize: 10, color: "#475569" }
+            { text: report.metadata.methodology, italics: true, fontSize: 10, color: BRAND_CONFIG.colors.muted }
         ],
         styles: {
-            header: { font: "RoyalSerif", fontSize: 24, bold: true, color: "#0F172A" },
-            brandLogo: { font: "RoyalSerif", fontSize: 18, bold: true, color: "#0369A1", margin: [0, 5] },
-            subheader: { fontSize: 10, italics: true, color: "#64748B", margin: [0, 5, 0, 10] },
-            score: { font: "RoyalSerif", fontSize: 20, bold: true, color: report.readinessScore > 70 ? "#15803d" : "#b45309" },
-            sectionHeader: { font: "RoyalSerif", fontSize: 16, bold: true, margin: [0, 20, 0, 10], color: "#0F172A" },
-            tableHeader: { bold: true, fontSize: 10, color: "#F8FAFC", fillStatus: true, fillColor: "#1E293B" },
+            header: { font: BRAND_CONFIG.fonts.header, fontSize: 24, bold: true, color: BRAND_CONFIG.colors.primary },
+            brandLogo: { font: BRAND_CONFIG.fonts.header, fontSize: 18, bold: true, color: BRAND_CONFIG.colors.secondary, margin: [0, 5] },
+            subheader: { fontSize: 10, italics: true, color: BRAND_CONFIG.colors.muted, margin: [0, 5, 0, 10] },
+            score: { font: BRAND_CONFIG.fonts.header, fontSize: 20, bold: true, color: report.readinessScore > 70 ? BRAND_CONFIG.colors.accent : BRAND_CONFIG.colors.warning },
+            sectionHeader: { font: BRAND_CONFIG.fonts.header, fontSize: 16, bold: true, margin: [0, 20, 0, 10], color: BRAND_CONFIG.colors.primary },
+            tableHeader: { bold: true, fontSize: 10, color: "#F8FAFC", fillStatus: true, fillColor: BRAND_CONFIG.colors.primary },
             tableCell: { fontSize: 9, margin: [0, 3] },
-            findingTitle: { font: "RoyalSerif", fontSize: 14, bold: true, color: "#1E293B" },
-            findingMeta: { fontSize: 9, italics: true, color: "#64748B", margin: [0, 0, 0, 5] },
+            findingTitle: { font: BRAND_CONFIG.fonts.header, fontSize: 14, bold: true, color: BRAND_CONFIG.colors.text },
+            findingMeta: { fontSize: 9, italics: true, color: BRAND_CONFIG.colors.muted, margin: [0, 0, 0, 5] },
             findingLabel: { bold: true, fontSize: 10, margin: [0, 8, 0, 2], color: "#334155" },
-            bodyText: { font: "Morgan", fontSize: 10, lineHeight: 1.4 },
-            evidenceText: { font: "Roboto", fontSize: 8, color: "#475569" },
+            bodyText: { font: BRAND_CONFIG.fonts.body, fontSize: 10, lineHeight: 1.4 },
+            evidenceText: { font: BRAND_CONFIG.fonts.mono, fontSize: 8, color: BRAND_CONFIG.colors.muted },
             footerText: { fontSize: 8, color: "#94A3B8", margin: [0, 10] }
         },
         defaultStyle: {
-            font: "Morgan",
+            font: BRAND_CONFIG.fonts.body,
             fontSize: 10,
             lineHeight: 1.2
         }

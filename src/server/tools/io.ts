@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ThoughtGraph, getGraphInstance } from "../../graph/index.js";
 import { logger } from "../logger.js";
 import { createHash } from "node:crypto";
+import { ThoughtNodeSchema, ThoughtEdgeSchema, GraphStateSchema } from "./schemas.js";
 
 /**
  * Maps a GoT lens to an Antigravity 2026 Taxonomy type.
@@ -38,7 +39,7 @@ export function registerIoTools(server: McpServer, defaultGraph: ThoughtGraph, n
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
             }),
             annotations: { readOnlyHint: true },
-            outputSchema: z.object({}).passthrough()
+            outputSchema: GraphStateSchema
         },
         async ({ sessionId }) => {
             try {
@@ -64,18 +65,18 @@ export function registerIoTools(server: McpServer, defaultGraph: ThoughtGraph, n
             description: "Restore graph state from a previously exported snapshot. Replaces ALL current state. Use for deterministic replay or recovery.",
             inputSchema: z.object({
                 snapshot: z.object({
-                    nodes: z.array(z.any()).describe("Array of ThoughtNode objects"),
-                    edges: z.array(z.any()).describe("Array of ThoughtEdge objects"),
+                    nodes: z.array(ThoughtNodeSchema).describe("Array of ThoughtNode objects"),
+                    edges: z.array(ThoughtEdgeSchema).describe("Array of ThoughtEdge objects"),
                     nodeCounter: z.number().int().min(0).describe("The node counter value from the snapshot"),
                 }).describe("A snapshot object previously returned by export_snapshot"),
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
             }),
             annotations: { destructiveHint: true },
             outputSchema: z.object({
-                restoredNodes: z.number(),
-                restoredEdges: z.number(),
-                previousNodes: z.number()
-            })
+                restoredNodes: z.number().describe("Number of nodes successfully restored"),
+                restoredEdges: z.number().describe("Number of edges successfully restored"),
+                previousNodes: z.number().describe("Number of nodes present before restoration")
+            }).describe("Confirmation of state restoration")
         },
         async ({ snapshot, sessionId }: { snapshot: { nodes: any[]; edges: any[]; nodeCounter: number }, sessionId?: string }) => {
             try {
@@ -107,7 +108,23 @@ export function registerIoTools(server: McpServer, defaultGraph: ThoughtGraph, n
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
             }),
             annotations: { readOnlyHint: true },
-            outputSchema: z.object({}).passthrough()
+            outputSchema: z.object({
+                question: z.string().describe("The root problem statement"),
+                steps: z.array(z.object({
+                    step: z.number().describe("Sequential step number"),
+                    nodeId: z.string().describe("Identifier of the thought node"),
+                    thought: z.string().describe("Reasoning content of the step"),
+                    score: z.number().describe("Confidence score of this step"),
+                    status: z.string().describe("Node status (active/validated/etc.)"),
+                    reflections: z.array(z.string()).describe("Self-critiques or reflections linked to this step"),
+                    alternatives: z.array(z.string()).describe("Alternative branches considered at this step")
+                })).describe("The linear sequence of reasoning steps"),
+                conclusion: z.string().describe("The final synthesized conclusion"),
+                compositeScore: z.number().describe("Aggregate confidence score for the entire trace"),
+                totalNodes: z.number().describe("Total nodes explored in the session"),
+                totalEdges: z.number().describe("Total relationships defined in the session"),
+                exportedAt: z.string().describe("ISO 8601 timestamp of export")
+            }).describe("Structured reasoning trace for model consumption")
         },
         async ({ sessionId }) => {
             try {
@@ -134,9 +151,17 @@ export function registerIoTools(server: McpServer, defaultGraph: ThoughtGraph, n
             }),
             annotations: { readOnlyHint: true },
             outputSchema: z.object({
-                entities: z.array(z.any()),
-                relations: z.array(z.any())
-            })
+                entities: z.array(z.object({
+                    name: z.string().describe("Entity name (semantically derived)"),
+                    entityType: z.string().describe("Antigravity 2026 Taxonomy type"),
+                    observations: z.array(z.string()).describe("Reasoning statements associated with entity")
+                })).describe("Extracted knowledge entities"),
+                relations: z.array(z.object({
+                    from: z.string().describe("Source entity name"),
+                    to: z.string().describe("Target entity name"),
+                    relationType: z.string().describe("Type of relationship")
+                })).describe("Relationships between entities")
+            }).describe("Memory-compatible knowledge graph export")
         },
         async ({ nodeId, sessionId }: { nodeId?: string, sessionId?: string }) => {
             try {
@@ -180,7 +205,14 @@ export function registerIoTools(server: McpServer, defaultGraph: ThoughtGraph, n
             annotations: {
                 readOnlyHint: false,
                 destructiveHint: false,
-            }
+            },
+            outputSchema: z.object({
+                success: z.boolean().describe("Whether the commit operation was successful"),
+                nodeId: z.string().describe("The ID of the leaf node being committed"),
+                totalNodes: z.number().optional().describe("Total number of nodes prepared for commitment"),
+                totalRelations: z.number().optional().describe("Total number of relationships prepared"),
+                memoryResult: z.any().optional().describe("Raw result from the memory server bridge")
+            }).describe("Result of memory commitment")
         },
         async ({ nodeId, sessionId, dryRun }) => {
             try {
@@ -256,17 +288,20 @@ export function registerIoTools(server: McpServer, defaultGraph: ThoughtGraph, n
                 }
 
                 const totalNodes = orderedNodes.length;
+                const totalRelations = relations.length;
                 const CHUNK_SIZE = 25; // FR-011
 
                 if (dryRun) {
                     return {
                         content: [{ type: "text" as const, text: `Dry Run: Prepared ${entities.length} entities and ${relations.length} relations for commitment.` }],
                         structuredContent: {
+                            success: true,
+                            nodeId: leaf.id,
                             totalNodes,
-                            totalRelations: relations.length,
-                            chunkCount: Math.ceil(totalNodes / CHUNK_SIZE),
+                            totalRelations,
                             entities,
-                            relations
+                            relations,
+                            memoryResult: { status: "simulated", dryRun: true }
                         }
                     };
                 }
@@ -282,10 +317,11 @@ export function registerIoTools(server: McpServer, defaultGraph: ThoughtGraph, n
                         text: `Commitment Payload Ready.${chunkInfo}\n\nPlease execute the following tool calls on the '@mcp:memory' server:\n\n1. create_entities(entities: [...])\n2. create_relations(relations: [...])\n\nVerified conclusion from GoT session '${sessionId || "default"}' is now ready for long-term memory.` 
                     }],
                     structuredContent: {
+                        success: true,
+                        nodeId: leaf.id,
                         totalNodes,
-                        totalRelations: relations.length,
-                        entities,
-                        relations
+                        totalRelations,
+                        memoryResult: { status: "ready_for_manual_commit" }
                     }
                 };
 

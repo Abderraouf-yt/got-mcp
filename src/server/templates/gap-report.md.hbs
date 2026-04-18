@@ -10,10 +10,10 @@
 
 ## Remediation Matrix
 
-| Category | Gap (Identified Issue) | Remediation Recommendation | Severity | Evidence Reference |
+| Category | Gap (Identified Issue) | Remediation Recommendation | Severity | Evidence Reference |        
 |----------|----------------------|----------------------------|----------|-------------------|
 {{#each gaps}}
-| {{category}} | {{title}} | {{remediation}} | {{severity}} | {{#each evidence}}`{{path}}`{{#unless @last}}, {{/unless}}{{/each}} |
+| {{category}} | {{title}} | {{remediation}} | {{severity}} | {{#each evidence}}{{path}}{{#unless @last}}, {{/unless}}{{/each}} |
 {{/each}}
 
 ---
@@ -27,7 +27,7 @@
 
 #### Evidence Lineage
 {{#each evidence}}
-- `{{path}}`: `{{attribute}}` = `{{value}}`
+- {{path}}: {{attribute}} = {{value}}
 {{/each}}
 
 ---
@@ -40,4 +40,4 @@
 **Total Gaps Identified**: {{metadata.totalGaps}}
 
 ---
-*Powered by findiacs | Professional Compliance Intelligence*
+*Powered by {{brand.identity.name}} | {{brand.identity.tagline}}*

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ThoughtGraph, getGraphInstance } from "../../graph/index.js";
 import type { ConfidenceVector } from "../../types.js";
 import { logger } from "../logger.js";
+import { ConfidenceVectorSchema } from "./schemas.js";
 
 /**
  * Trigger autonomous LLM audit via MCP Sampling.
@@ -83,11 +84,11 @@ export function registerCoreTools(server: McpServer, defaultGraph: ThoughtGraph,
             }),
             annotations: { destructiveHint: true },
             outputSchema: z.object({
-                nodeId: z.string(),
-                thought: z.string(),
-                relation: z.string().optional(),
-                parentId: z.string().optional()
-            })
+                nodeId: z.string().describe("The ID assigned to the new thought node"),
+                thought: z.string().describe("The content of the proposed thought"),
+                relation: z.string().optional().describe("The relationship to the parent node"),
+                parentId: z.string().optional().describe("The ID of the parent node, if provided")
+            }).describe("Confirmation of the proposed thought")
         },
         async ({ thought, parentId, relation, authorId, agentTarget, executionState, dependencies, sessionId }) => {
             try {
@@ -131,12 +132,7 @@ export function registerCoreTools(server: McpServer, defaultGraph: ThoughtGraph,
                 score: z.number().min(0).max(1).optional().describe("Omit to trigger autonomous LLM audit (0.0 to 1.0)"),
                 status: z.enum(["active", "validated", "rejected", "branching"]).optional().describe("Update the node status"),
                 critique: z.string().max(2000, "Critique exceeds 2000 chars").optional().describe("Reasoning for the evaluation"),
-                confidence: z.object({
-                    factual: z.number().min(0).max(1).describe("Grounded in verifiable facts"),
-                    logical: z.number().min(0).max(1).describe("Reasoning chain is valid"),
-                    relevance: z.number().min(0).max(1).describe("Addresses the problem directly"),
-                    novelty: z.number().min(0).max(1).describe("Adds new information"),
-                }).optional().describe("v4.0: Multi-dimensional confidence — if provided, composite score is auto-computed"),
+                confidence: ConfidenceVectorSchema.optional().describe("v4.0: Multi-dimensional confidence — if provided, composite score is auto-computed"),
                 authorId: z.string().optional().describe("Which sub-agent explicitly evaluated this thought"),
                 agentTarget: z.string().optional().describe("Re-route to another specialized agent persona"),
                 executionState: z.enum(["queued", "processing", "done"]).optional().describe("Update swarm fulfillment state"),
@@ -145,12 +141,12 @@ export function registerCoreTools(server: McpServer, defaultGraph: ThoughtGraph,
             }),
             annotations: { destructiveHint: true },
             outputSchema: z.object({
-                nodeId: z.string(),
-                audited: z.boolean().optional(),
-                message: z.string().optional(),
-                score: z.number().optional(),
-                status: z.string().optional()
-            })
+                nodeId: z.string().describe("The ID of the evaluated node"),
+                audited: z.boolean().optional().describe("Whether an autonomous audit was triggered"),
+                message: z.string().optional().describe("Status message or audit result"),
+                score: z.number().optional().describe("The applied or computed confidence score"),
+                status: z.string().optional().describe("The new status of the node")
+            }).describe("Result of the evaluation")
         },
         async ({ nodeId, score, status, critique, confidence, authorId, agentTarget, executionState, dependencies, sessionId }) => {
             try {
@@ -203,9 +199,9 @@ export function registerCoreTools(server: McpServer, defaultGraph: ThoughtGraph,
             }),
             annotations: { destructiveHint: true },
             outputSchema: z.object({
-                success: z.boolean(),
-                message: z.string()
-            })
+                success: z.boolean().describe("Whether the graph was successfully cleared"),
+                message: z.string().describe("Status message")
+            }).describe("Result of the graph reset")
         },
         async ({ sessionId }) => {
             try {

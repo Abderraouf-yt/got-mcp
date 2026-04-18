@@ -88,12 +88,14 @@ export function registerPerspectivesTools(server: McpServer, defaultGraph: Thoug
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
             }),
             outputSchema: z.object({
+                query: z.string().describe("The original query used to generate perspectives"),
                 perspectives: z.array(z.object({
-                    lens: z.string(),
-                    thought: z.string(),
-                    weight: z.number()
-                }))
-            })
+                    lens: z.string().describe("The analytical lens (e.g., Security, ROI)"),
+                    thought: z.string().describe("The generated perspective statement"),
+                    weight: z.number().describe("Default priority weight for this lens")
+                })).describe("List of generated perspectives"),
+                count: z.number().describe("Total number of perspectives generated")
+            }).describe("Result of heuristic perspective generation")
         },
         async ({ query, count, sessionId }) => {
             try {
@@ -103,7 +105,11 @@ export function registerPerspectivesTools(server: McpServer, defaultGraph: Thoug
 
                 return {
                     content: [{ type: "text" as const, text: `Generated ${perspectives.length} perspectives for domain.` }],
-                    structuredContent: { perspectives }
+                    structuredContent: { 
+                        query,
+                        perspectives,
+                        count: perspectives.length 
+                    }
                 };
             } catch (err) {
                 logger.error(`Error in generate_perspectives: ${err}`);

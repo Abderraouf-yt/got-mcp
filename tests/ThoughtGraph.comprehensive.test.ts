@@ -10,6 +10,15 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { ThoughtGraph, getGraphInstance, resetGraphInstance, ThoughtGraphError, ThoughtGraphNotFoundError } from "../src/graph/ThoughtGraph.js";
 import { ContextStore } from "../src/context/ContextStore.js";
+import { validateOutput } from "./utils/schema_validator.js";
+import { 
+    ThoughtNodeSchema, 
+    ThoughtEdgeSchema, 
+    GraphStateSchema, 
+    WinningPathSchema,
+    GapReportSchema,
+    ControllerLoopResultSchema
+} from "../src/server/tools/schemas.js";
 
 // ==========================================
 // 1. GOVERNANCE LIMITS
@@ -811,5 +820,36 @@ describe("Graph Metrics", () => {
         assert.strictEqual(metrics.validatedCount, 1);
         assert.strictEqual(metrics.rootCount, 1);
         assert.ok(metrics.pruneRatio > 0, "Prune ratio should reflect rejected nodes");
+    });
+});
+
+// ==========================================
+// 15. SCHEMA VALIDATION (Antigravity 2026)
+// ==========================================
+describe("Output Schema Validation", () => {
+    test("get_thought_graph should match GraphStateSchema", async () => {
+        const graph = new ThoughtGraph();
+        await graph.addNode("Test node");
+        const state = graph.getGraph();
+        
+        const result = validateOutput(GraphStateSchema, state);
+        assert.ok(result.valid, `Schema validation failed: ${result.message}`);
+    });
+
+    test("findWinningPath should match WinningPathSchema", async () => {
+        const graph = new ThoughtGraph();
+        await graph.addNode("Test node");
+        const resultPath = graph.findWinningPath();
+        
+        const validation = validateOutput(WinningPathSchema, resultPath);
+        assert.ok(validation.valid, `Schema validation failed: ${validation.message}`);
+    });
+
+    test("runControllerLoop should match ControllerLoopResultSchema", async () => {
+        const graph = new ThoughtGraph();
+        const result = await graph.runControllerLoop("Test", ["Thought"], { maxIterations: 1 });
+        
+        const validation = validateOutput(ControllerLoopResultSchema, result);
+        assert.ok(validation.valid, `Schema validation failed: ${validation.message}`);
     });
 });

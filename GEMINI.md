@@ -21,7 +21,7 @@ src/
 ├── server/
 │   ├── mcp.ts                # Main MCP registration logic
 │   ├── http.ts               # Express REST API + CORS for visualizer
-│   └── tools/                # Specialized tool modules (21 tools total)
+│   └── tools/                # Specialized tool modules (23 tools total)
 │       ├── core.ts           # Basic lifecycle & graph management
 │       ├── got.ts            # Besta et al. (2023) reasoning primitives
 │       ├── context.ts        # Shared context store & provenance
@@ -31,6 +31,10 @@ src/
 ├── graph/
 │   ├── ThoughtGraph.ts       # Core DAG engine (GoT primitives)
 │   └── index.ts              # Singleton export via getGraphInstance()
+├── brand/                    # NEW v4.5.0: Centralized Brand Identity
+│   ├── config.ts             # BRAND_CONFIG (colors, fonts, metadata)
+│   ├── resolver.ts           # Portable font path resolution + fallbacks
+│   └── index.ts              # Public branding API
 ├── types.ts                  # ThoughtNode, ThoughtEdge, ThoughtRelation, GraphState
 └── resources/                # MCP resource: thought-graph://current
 
@@ -45,7 +49,7 @@ docs/assets/                  # Demo screenshots, state JSON, recordings
 
 > **⚠️ Stale references:** The old `tools/handlers.ts` and `tools/definitions.ts` files no longer exist. All tool logic is centralized in `src/server/mcp.ts` using inline Zod schemas.
 
-## 🧠 MCP Tools (21 total)
+## 🧠 MCP Tools (23 total)
 
 ### Core Tools (v1.0)
 | Tool | Description | Annotations |
@@ -54,13 +58,13 @@ docs/assets/                  # Demo screenshots, state JSON, recordings
 | `evaluate_thought` | Score/critique a node (0.0–1.0). Omit score → autonomous audit | `destructiveHint: true` |
 | `get_thought_graph` | Retrieve entire graph state as JSON | `readOnlyHint: true` |
 | `reset_graph` | Clear all nodes and edges | `destructiveHint: true` |
-| `generate_perspectives` | **NEW v4.3.0**: Auto-generate analytical seed nodes from a query | `readOnlyHint: true` |
+| `generate_perspectives` | **NEW v4.3.0**: Heuristic auto-seeding of reasoning branches | `readOnlyHint: true` |
 
 ### GoT Primitives (v3.0)
 | Tool | Description | Annotations |
 |------|-------------|-------------|
-| `aggregate_thoughts` | Merge 2+ nodes → synthesized conclusion with `aggregation` edges | `destructiveHint: true` |
-| `prune_branch` | Recursively reject a node + ALL descendants (score=0) | `destructiveHint: true` |
+| `aggregate_thoughts` | Merge 2+ nodes → synthesized conclusion | `destructiveHint: true` |
+| `prune_branch` | Recursively reject a node + ALL descendants | `destructiveHint: true` |
 | `find_winning_path` | Greedy DFS/Beam Search: k-best paths from root to leaf | `readOnlyHint: true` |
 | `get_graph_metrics` | Retrieve live metrics: node count, max depth, prune ratio, etc. | `readOnlyHint: true` |
 
@@ -69,24 +73,26 @@ docs/assets/                  # Demo screenshots, state JSON, recordings
 |------|-------------|-------------|
 | `reflect_and_refine` | Self-reflection: 4-axis confidence + auto-critique + branch | `destructiveHint: true` |
 | `context_set` | Write key-value to shared context store with provenance | `destructiveHint: true` |
-| `context_get` | Read value + source from shared context store | `readOnlyHint: true` |
+| `context_get` | Read value + source from shared context store | `destructiveHint: true` |
 | `context_list` | List all context store entries and their sources | `readOnlyHint: true` |
 
 ### Orchestration & Export (v3.0/v4.0)
 | Tool | Description | Annotations |
 |------|-------------|-------------|
 | `export_snapshot` | Full graph serialization for deterministic replay/recovery | `readOnlyHint: true` |
-| `restore_snapshot` | Replace graph state from previously exported JSON snapshot | `destructiveHint: true` |
-| `export_reasoning_trace` | Export winning path as Long CoT trace (DeepSeek-R1/o3 format) | `readOnlyHint: true` |
-| `export_proven_memory` | Export the validated reasoning path for `@mcp:memory` Knowledge Graph format | `readOnlyHint: true` |
-| `run_controller_loop` | Autonomous GoT loop. Supports `autoSeed: true` for zero-prompt branching | `destructiveHint: true` |
-| `compile_node_context` | SOTA Context Firewall: Compiles reasoning context filtering lateral branches | `readOnlyHint: true` |
-| `query_nodes` | Query and filter nodes by swarm orchestration fields (e.g., queued agent tasks) | `readOnlyHint: true` |
+| `restore_snapshot` | Replace graph state from previously exported snapshot | `destructiveHint: true` |
+| `export_reasoning_trace` | Export winning path as Long CoT trace (R1 format) | `readOnlyHint: true` |
+| `export_proven_memory` | Export path for `@mcp:memory` KG format | `readOnlyHint: true` |
+| `commit_to_memory` | Permanent storage of validated insights | `destructiveHint: false` |
+| `run_controller_loop` | Autonomous GoT loop orchestrator | `destructiveHint: true` |
+| `compile_node_context` | SOTA Context Firewall: Filter lateral branches | `readOnlyHint: true` |
+| `query_nodes` | Discovery filter for swarm orchestration tasks | `readOnlyHint: true` |
+| `ingest_evidence` | Sanitized ingestion of cloud infrastructure JSON | `readOnlyHint: false` |
 
 ### Reporting & Analysis (v4.4.0)
 | Tool | Description | Annotations |
 |------|-------------|-------------|
-| `generate_gap_report` | **NEW v4.4.0**: Transform winning reasoning paths into professional SOC 2 Gap Analysis PDFs/Markdown | `readOnlyHint: true` |
+| `generate_gap_report` | **NEW v4.4.0**: Professional SOC 2 Gap Analysis PDFs/Markdown | `readOnlyHint: true` |
 
 ### MCP Resources
 | URI | Description |
@@ -129,8 +135,8 @@ npx tsx --test tests/           # Run unit tests
 - ✅ **Actionable error messages** with specific node IDs and suggestions
 - ✅ **Custom error classes** (ThoughtGraphError, NotFoundError, PersistenceError)
 - ✅ **Singleton state** via `getGraphInstance()` (Stdio + HTTP share same graph)
-- ✅ **Tool annotations** (`readOnlyHint` / `destructiveHint`) — fully implemented on all 19 tools
-- ⬜ **outputSchema** — not yet implemented per tool
+- ✅ **Tool annotations** (`readOnlyHint` / `destructiveHint`) — fully implemented on all 23 tools
+- ✅ **outputSchema** — fully implemented for all tools with strict array items
 
 ### Coding Standards
 - ES6+, async/await, strict TypeScript (`strict: true`)
@@ -162,6 +168,7 @@ npx tsx --test tests/           # Run unit tests
 | **Volume Control** | ✅ v3.0 | Engine governance limits |
 | **Replay** | ✅ v3.0 | `export_snapshot` / `restore_snapshot` |
 | **Self-Reflect** | ✅ v4.0 | `reflect_and_refine` — 4-axis confidence |
+| **Auto-save** | ✅ v4.4.1 | Reactive, atomic asynchronous persistence (< 100ms) |
 | **Context Store** | ✅ v4.0 | `context_set` / `context_get` / `context_list` |
 | **Reasoning Trace** | ✅ v4.0 | `export_reasoning_trace` — Long CoT export |
 | **Controller Loop** | ✅ v4.0 | `run_controller_loop` — autonomous orchestrator |

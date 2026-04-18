@@ -11,6 +11,7 @@ import * as lockfile from "proper-lockfile";
 import { randomUUID } from 'node:crypto';
 import path from "node:path";
 import { logger } from "../server/logger.js";
+import { Persistence } from "./Persistence.js";
 import type {
     ThoughtNode,
     ThoughtEdge,
@@ -65,6 +66,11 @@ export class ThoughtGraph {
     private instancePrefix: string;
     private listeners: Array<() => void> = [];
 
+    // Auto-save & Batching state
+    private isBatching: boolean = false;
+    private isDirty: boolean = false;
+    private saveQueue: Promise<void> = Promise.resolve();
+
     // O(1) Task Discovery Indices (Framework C)
     private indexExecutionState = {
         queued: new Set<string>(),
@@ -103,9 +109,54 @@ export class ThoughtGraph {
     }
 
     /**
+     * Request an auto-save operation.
+     * If batching, marks dirty. Otherwise, queues a disk write.
+     */
+    private async requestSave(): Promise<void> {
+        if (this.isBatching) {
+            this.isDirty = true;
+            return;
+        }
+
+        // Serialized save queue prevents concurrent lock attempts within same process
+        this.saveQueue = this.saveQueue.then(() => this.save());
+        return this.saveQueue;
+    }
+
+    /**
+     * Force an immediate save, bypassing queue (internal use only).
+     */
+    private async forceSave(): Promise<void> {
+        return this.save();
+    }
+
+    /**
+     * Wrap multiple mutations into a single unit of work.
+     * Only one save occurs at the end.
+     */
+    async batch<T>(operation: () => Promise<T>): Promise<T> {
+        const wasBatching = this.isBatching;
+        this.isBatching = true;
+        this.isDirty = false;
+
+        try {
+            const result = await operation();
+            if (this.isDirty) {
+                await this.save();
+            }
+            return result;
+        } finally {
+            this.isBatching = wasBatching;
+            if (!wasBatching) {
+                this.isDirty = false;
+            }
+        }
+    }
+
+    /**
      * Save the graph state to disk atomically across processes.
      * Uses asynchronous locks with exponential backoff to handle Swarm contention.
-     * @throws {ThoughtGraphPersistenceError} if write fails
+     * Delegates actual I/O to the Persistence class.
      */
     private async save(): Promise<void> {
         // Broadcast to any attached UI listeners (WebSockets/SSE)
@@ -119,7 +170,7 @@ export class ThoughtGraph {
         try {
             // Ensure file exists before locking
             if (!fs.existsSync(this.persistencePath)) {
-                fs.writeFileSync(this.persistencePath, JSON.stringify(this.getGraph(), null, 2), "utf-8");
+                await Persistence.save(this.persistencePath, this.getGraph());
             }
 
             // Acquire asynchronous IPC OS lock with exponential backoff retries
@@ -133,15 +184,12 @@ export class ThoughtGraph {
                 }
             });
 
-            // NOW THAT WE HAVE THE LOCK: reload from disk to get the absolute latest state
-            // from any other process that might have written while we were waiting.
-            // But we must ONLY merge in missing data, keeping our newly minted local mutations.
+            // Merge logic remains in memory before delegating to Persistence
             let diskData: any = null;
             try {
-                const raw = fs.readFileSync(this.persistencePath, "utf-8");
-                diskData = JSON.parse(raw);
+                diskData = Persistence.loadSync(this.persistencePath);
             } catch (e) {
-                // Initial file might be empty if we just created it
+                // Initial file might be empty or corrupted
             }
 
             if (diskData && diskData.nodes) {
@@ -151,7 +199,6 @@ export class ThoughtGraph {
                     if (!mergedNodes.has(dNode.id)) {
                         mergedNodes.set(dNode.id, dNode as ThoughtNode);
                     } else if ((dNode as ThoughtNode).updatedAt > mergedNodes.get(dNode.id)!.updatedAt) {
-                        // Or if the disk node is newer (another process updated it)
                         mergedNodes.set(dNode.id, dNode as ThoughtNode);
                     }
                 }
@@ -166,22 +213,18 @@ export class ThoughtGraph {
                     }
                 }
 
-                // Apply merged state to memory right before writing
                 this.nodes = mergedNodes;
                 this.edges = mergedEdges;
                 this.nodeCounter = Math.max(this.nodeCounter, diskData.nodeCounter || 0);
             }
 
-            const data = JSON.stringify(this.getGraph(), null, 2);
-            // Write to a temporary file first, then rename, for total atomicity 
-            // even if the lock is somehow bypassed locally
-            const tempPath = `${this.persistencePath}.tmp`;
-            fs.writeFileSync(tempPath, data, "utf-8");
-            fs.renameSync(tempPath, this.persistencePath);
+            // Delegate to Persistence for atomic temp+rename write
+            await Persistence.save(this.persistencePath, this.getGraph());
+            this.isDirty = false;
 
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            logger.error(new ThoughtGraphPersistenceError('save', this.persistencePath, message).message);
+            logger.error(`Failed to save graph: ${message}`);
         } finally {
             if (releaseLock) {
                 try { await releaseLock(); } catch (e) { /* ignore release errors */ }
@@ -191,8 +234,6 @@ export class ThoughtGraph {
 
     /**
      * Load the graph state from disk atomically.
-     * Synchronous block is required here for initial boot, but we use the sync lock.
-     * @throws {ThoughtGraphPersistenceError} if read/parse fails
      */
     private load(): void {
         if (!this.persistencePath || !fs.existsSync(this.persistencePath)) return;
@@ -201,8 +242,8 @@ export class ThoughtGraph {
         try {
             releaseLock = lockfile.lockSync(this.persistencePath, { retries: 0 });
 
-            const data = fs.readFileSync(this.persistencePath, "utf-8");
-            const state = JSON.parse(data) as GraphState;
+            const state = Persistence.loadSync(this.persistencePath) as GraphState;
+            if (!state) return;
 
             this.nodes.clear();
             this.indexExecutionState.queued.clear();
@@ -211,7 +252,6 @@ export class ThoughtGraph {
 
             state.nodes.forEach((node) => {
                 this.nodes.set(node.id, node);
-                // Re-hydrate O(1) indices
                 if (node.executionState) {
                     this.indexExecutionState[node.executionState].add(node.id);
                 }
@@ -230,22 +270,13 @@ export class ThoughtGraph {
 
             this.nodeCounter = maxId;
 
-            // CRITICAL: Notify listeners so cross-process mutations (from the MCP Host) 
-            // instantly trigger Server-Sent Events in the visualizer Express bridge.
             for (const listener of this.listeners) {
                 try { listener(); } catch (e) { logger.error("Listener error", e); }
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             if ((error as any).code !== 'ELOCKED') {
-                logger.error(new ThoughtGraphPersistenceError('load', this.persistencePath, message).message);
-            }
-            // If the file is transiently locked/corrupted during a cross-process write,
-            // do NOT wipe the graph if we already have data. 
-            if (this.nodes.size === 0 && (error as any).code !== 'ELOCKED') {
-                this.nodes.clear();
-                this.edges = [];
-                this.nodeCounter = 0;
+                logger.error(`Failed to load graph: ${message}`);
             }
         } finally {
             if (releaseLock) {
@@ -306,7 +337,7 @@ export class ThoughtGraph {
         this.stateVersion++;
 
         // Await persistence lock fully to avoid dropping under load
-        await this.save();
+        await this.requestSave();
         return nodeId;
     }
 
@@ -360,7 +391,7 @@ export class ThoughtGraph {
 
         this.edges.push(edge);
         this.stateVersion++;
-        await this.save();
+        await this.requestSave();
     }
 
     /**
@@ -385,7 +416,7 @@ export class ThoughtGraph {
         };
 
         this.nodes.set(id, updatedNode);
-        await this.save();
+        await this.requestSave();
     }
 
     /**
@@ -428,7 +459,7 @@ export class ThoughtGraph {
         };
 
         this.nodes.set(id, updatedNode);
-        await this.save();
+        await this.requestSave();
     }
 
     /**
@@ -617,73 +648,66 @@ export class ThoughtGraph {
      * @returns The ID of the new aggregated node
      */
     async aggregateNodes(nodeIds: string[], synthesizedThought: string, weights?: number[]): Promise<string> {
-        if (nodeIds.length < 2) {
-            throw new ThoughtGraphError("Aggregation requires at least 2 source nodes");
-        }
-
-        // Governance: max aggregation inputs
-        if (nodeIds.length > this.limits.maxAggregationInputs) {
-            throw new ThoughtGraphError(
-                `Aggregation limited to ${this.limits.maxAggregationInputs} inputs ` +
-                `(received ${nodeIds.length}). Split into smaller aggregations.`
-            );
-        }
-
-        // Validate all source nodes exist
-        for (const id of nodeIds) {
-            if (!this.nodes.has(id)) {
-                throw new ThoughtGraphNotFoundError(id);
+        return this.batch(async () => {
+            if (nodeIds.length < 2) {
+                throw new ThoughtGraphError("Aggregation requires at least 2 source nodes");
             }
-        }
 
-        const sourceNodes = nodeIds.map(id => this.nodes.get(id)!);
+            // Governance: max aggregation inputs
+            if (nodeIds.length > this.limits.maxAggregationInputs) {
+                throw new ThoughtGraphError(
+                    `Aggregation limited to ${this.limits.maxAggregationInputs} inputs ` +
+                    `(received ${nodeIds.length}). Split into smaller aggregations.`
+                );
+            }
 
-        // Use provided weights or default to each node's score as its confidence weight
-        const w = weights ?? sourceNodes.map(n => n.score);
+            // Validate all source nodes exist
+            for (const id of nodeIds) {
+                if (!this.nodes.has(id)) {
+                    throw new ThoughtGraphNotFoundError(id);
+                }
+            }
 
-        // Weighted Score = Σ(node_score × confidence_weight) / Σ(weights)
-        const weightSum = w.reduce((sum, wi) => sum + wi, 0);
-        const weightedScore = weightSum > 0
-            ? sourceNodes.reduce((sum, n, i) => sum + n.score * w[i], 0) / weightSum
-            : 0;
+            const sourceNodes = nodeIds.map(id => this.nodes.get(id)!);
 
-        // Aggregation confidence = 1 - stddev of source scores (higher = more agreement)
-        const mean = sourceNodes.reduce((s, n) => s + n.score, 0) / sourceNodes.length;
-        const variance = sourceNodes.reduce((s, n) => s + (n.score - mean) ** 2, 0) / sourceNodes.length;
-        // Clamp confidence to [0, 1] — high variance can push below 0
-        const rawConfidence = 1 - Math.sqrt(variance);
-        const confidence = Math.round(Math.max(0, Math.min(1, rawConfidence)) * 100) / 100;
+            // Use provided weights or default to each node's score as its confidence weight
+            const w = weights ?? sourceNodes.map(n => n.score);
 
-        // Build provenance: full source lineage trace
-        const provenance = sourceNodes.map(n => ({
-            id: n.id,
-            score: n.score,
-            status: n.status,
-            thought: n.thought.substring(0, 100),
-            weight: w[nodeIds.indexOf(n.id)],
-        }));
+            // Weighted Score = Σ(node_score × confidence_weight) / Σ(weights)
+            const weightSum = w.reduce((sum, wi) => sum + wi, 0);
+            const weightedScore = weightSum > 0
+                ? sourceNodes.reduce((sum, n, i) => sum + n.score * w[i], 0) / weightSum
+                : 0;
 
-        // Create the synthesized node
-        const newId = await this.addNode(synthesizedThought);
-        await this.updateNode(newId, {
-            score: Math.round(weightedScore * 100) / 100,
-            status: "validated",
-            metadata: {
-                aggregatedFrom: nodeIds,
-                aggregationType: "weighted_synthesis",
-                sourceCount: nodeIds.length,
-                weightedScore: Math.round(weightedScore * 100) / 100,
-                confidence,
-                formula: "Σ(score×weight)/Σ(weights)",
-            },
+            // Aggregation confidence = 1 - stddev of source scores (higher = more agreement)
+            const mean = sourceNodes.reduce((s, n) => s + n.score, 0) / sourceNodes.length;
+            const variance = sourceNodes.reduce((s, n) => s + (n.score - mean) ** 2, 0) / sourceNodes.length;
+            // Clamp confidence to [0, 1] — high variance can push below 0
+            const rawConfidence = 1 - Math.sqrt(variance);
+            const confidence = Math.round(Math.max(0, Math.min(1, rawConfidence)) * 100) / 100;
+
+            // Create the synthesized node
+            const newId = await this.addNode(synthesizedThought);
+            await this.updateNode(newId, {
+                score: Math.round(weightedScore * 100) / 100,
+                status: "validated",
+                metadata: {
+                    aggregatedFrom: nodeIds,
+                    aggregationType: "weighted_synthesis",
+                    sourceCount: nodeIds.length,
+                    weightedScore: Math.round(weightedScore * 100) / 100,
+                    confidence,
+                    formula: "Σ(score×weight)/Σ(weights)",
+                },
+            });
+
+            // Create aggregation edges from each source → new node
+            for (const sourceId of nodeIds) {
+                await this.addEdge(sourceId, newId, "aggregation");
+            }
+
+            return newId;
         });
-
-        // Create aggregation edges from each source → new node
-        for (const sourceId of nodeIds) {
-            await this.addEdge(sourceId, newId, "aggregation");
-        }
-
-        return newId;
     }
 
     /**
@@ -700,80 +724,82 @@ export class ThoughtGraph {
         reason?: string,
         options?: { mode?: "hard" | "soft"; decayFactor?: number; trigger?: "manual" | "auto" }
     ): Promise<{ pruned: string[]; mode: string }> {
-        if (!this.nodes.has(nodeId)) {
-            throw new ThoughtGraphNotFoundError(nodeId);
-        }
-
-        const mode = options?.mode ?? "hard";
-        const decayFactor = options?.decayFactor ?? 0.5;
-        const trigger = options?.trigger ?? "manual";
-        const pruned: string[] = [];
-        const visited = new Set<string>();
-
-        // BFS to find all descendants
-        const queue: string[] = [nodeId];
-        while (queue.length > 0) {
-            const current = queue.shift()!;
-            if (visited.has(current)) continue;
-            visited.add(current);
-
-            // Governance: cascade size limit
-            if (visited.size > this.limits.maxPruneCascade) {
-                throw new ThoughtGraphError(
-                    `Prune cascade exceeds limit (${this.limits.maxPruneCascade} nodes). ` +
-                    `Prune smaller branches first or increase maxPruneCascade.`
-                );
+        return this.batch(async () => {
+            if (!this.nodes.has(nodeId)) {
+                throw new ThoughtGraphNotFoundError(nodeId);
             }
 
-            const node = this.nodes.get(current);
-            if (node) {
-                if (mode === "hard") {
-                    // Hard prune: reject and zero out
-                    this.nodes.set(current, {
-                        ...node,
-                        status: "rejected",
-                        score: 0,
-                        updatedAt: new Date().toISOString(),
-                        metadata: {
-                            ...(node.metadata ?? {}),
-                            prunedAt: new Date().toISOString(),
-                            pruneReason: reason || `Branch pruned from ${nodeId}`,
-                            pruneMode: "hard",
-                            pruneTrigger: trigger,
-                            originalScore: node.score,
-                        },
-                    });
-                } else {
-                    // Soft prune: decay score, flag but don't reject
-                    const decayedScore = Math.round(node.score * decayFactor * 100) / 100;
-                    this.nodes.set(current, {
-                        ...node,
-                        score: decayedScore,
-                        updatedAt: new Date().toISOString(),
-                        metadata: {
-                            ...(node.metadata ?? {}),
-                            prunedAt: new Date().toISOString(),
-                            pruneReason: reason || `Soft pruned from ${nodeId}`,
-                            pruneMode: "soft",
-                            pruneTrigger: trigger,
-                            originalScore: node.score,
-                            decayFactor,
-                        },
-                    });
+            const mode = options?.mode ?? "hard";
+            const decayFactor = options?.decayFactor ?? 0.5;
+            const trigger = options?.trigger ?? "manual";
+            const pruned: string[] = [];
+            const visited = new Set<string>();
+
+            // BFS to find all descendants
+            const queue: string[] = [nodeId];
+            while (queue.length > 0) {
+                const current = queue.shift()!;
+                if (visited.has(current)) continue;
+                visited.add(current);
+
+                // Governance: cascade size limit
+                if (visited.size > this.limits.maxPruneCascade) {
+                    throw new ThoughtGraphError(
+                        `Prune cascade exceeds limit (${this.limits.maxPruneCascade} nodes). ` +
+                        `Prune smaller branches first or increase maxPruneCascade.`
+                    );
                 }
-                pruned.push(current);
+
+                const node = this.nodes.get(current);
+                if (node) {
+                    if (mode === "hard") {
+                        // Hard prune: reject and zero out
+                        this.nodes.set(current, {
+                            ...node,
+                            status: "rejected",
+                            score: 0,
+                            updatedAt: new Date().toISOString(),
+                            metadata: {
+                                ...(node.metadata ?? {}),
+                                prunedAt: new Date().toISOString(),
+                                pruneReason: reason || `Branch pruned from ${nodeId}`,
+                                pruneMode: "hard",
+                                pruneTrigger: trigger,
+                                originalScore: node.score,
+                            },
+                        });
+                    } else {
+                        // Soft prune: decay score, flag but don't reject
+                        const decayedScore = Math.round(node.score * decayFactor * 100) / 100;
+                        this.nodes.set(current, {
+                            ...node,
+                            score: decayedScore,
+                            updatedAt: new Date().toISOString(),
+                            metadata: {
+                                ...(node.metadata ?? {}),
+                                prunedAt: new Date().toISOString(),
+                                pruneReason: reason || `Soft pruned from ${nodeId}`,
+                                pruneMode: "soft",
+                                pruneTrigger: trigger,
+                                originalScore: node.score,
+                                decayFactor,
+                            },
+                        });
+                    }
+                    pruned.push(current);
+                }
+
+                // Find children (outgoing edges from this node)
+                const children = this.edges
+                    .filter(e => e.from === current)
+                    .map(e => e.to);
+                queue.push(...children);
             }
 
-            // Find children (outgoing edges from this node)
-            const children = this.edges
-                .filter(e => e.from === current)
-                .map(e => e.to);
-            queue.push(...children);
-        }
-
-        this.stateVersion++;
-        await this.save();
-        return { pruned, mode };
+            this.stateVersion++;
+            this.isDirty = true; // Ensure batch save is triggered
+            return { pruned, mode };
+        });
     }
 
     /**
@@ -1154,61 +1180,62 @@ export class ThoughtGraph {
         confidence: ConfidenceVector,
         refinedThought?: string
     ): Promise<{ critiqueId: string; branchId?: string; compositeScore: number }> {
-        const node = this.nodes.get(nodeId);
-        if (!node) {
-            throw new ThoughtGraphNotFoundError(nodeId);
-        }
+        return this.batch(async () => {
+            const node = this.nodes.get(nodeId);
+            if (!node) {
+                throw new ThoughtGraphNotFoundError(nodeId);
+            }
 
-        const compositeScore = this.computeCompositeScore(confidence);
+            const compositeScore = this.computeCompositeScore(confidence);
 
-        // Update the original node with confidence data
-        await this.updateNode(nodeId, {
-            score: compositeScore,
-            confidence,
-            updatedAt: new Date().toISOString(),
-        });
+            // Update the original node with confidence data
+            await this.updateNode(nodeId, {
+                score: compositeScore,
+                confidence,
+                updatedAt: new Date().toISOString(),
+            });
 
-        // Create critique node
-        const critiqueId = await this.addNode(`[Reflection] ${critique}`);
-        await this.addEdge(nodeId, critiqueId, "reflection");
+            // Create critique node
+            const critiqueId = await this.addNode(`[Reflection] ${critique}`);
+            await this.addEdge(nodeId, critiqueId, "reflection");
 
-        // Update critique node with assessment metadata
-        const critiqueNode = this.nodes.get(critiqueId)!;
-        await this.updateNode(critiqueId, {
-            ...critiqueNode,
-            score: compositeScore,
-            confidence,
-            status: compositeScore >= 0.7 ? "validated" : "active",
-            metadata: {
-                ...(critiqueNode.metadata ?? {}),
-                reflectionOf: nodeId,
-                assessmentType: "self-reflection",
-            },
-        });
-
-        let branchId: string | undefined;
-
-        // If critique reveals a flaw and refined version provided, branch
-        if (refinedThought && compositeScore < 0.7) {
-            branchId = await this.addNode(refinedThought);
-            await this.addEdge(nodeId, branchId, "branch");
-
-            const branchNode = this.nodes.get(branchId)!;
-            await this.updateNode(branchId, {
-                ...branchNode,
-                status: "active",
+            // Update critique node with assessment metadata
+            const critiqueNode = this.nodes.get(critiqueId)!;
+            await this.updateNode(critiqueId, {
+                ...critiqueNode,
+                score: compositeScore,
+                confidence,
+                status: compositeScore >= 0.7 ? "validated" : "active",
                 metadata: {
-                    ...(branchNode.metadata ?? {}),
-                    refinedFrom: nodeId,
-                    refinementReason: critique,
+                    ...(critiqueNode.metadata ?? {}),
+                    reflectionOf: nodeId,
+                    assessmentType: "self-reflection",
                 },
             });
-        }
 
-        this.stateVersion++;
-        await this.save();
+            let branchId: string | undefined;
 
-        return { critiqueId, branchId, compositeScore };
+            // If critique reveals a flaw and refined version provided, branch
+            if (refinedThought && compositeScore < 0.7) {
+                branchId = await this.addNode(refinedThought);
+                await this.addEdge(nodeId, branchId, "branch");
+
+                const branchNode = this.nodes.get(branchId)!;
+                await this.updateNode(branchId, {
+                    ...branchNode,
+                    status: "active",
+                    metadata: {
+                        ...(branchNode.metadata ?? {}),
+                        refinedFrom: nodeId,
+                        refinementReason: critique,
+                    },
+                });
+            }
+
+            this.stateVersion++;
+            this.isDirty = true;
+            return { critiqueId, branchId, compositeScore };
+        });
     }
 
     /**
@@ -1347,168 +1374,170 @@ export class ThoughtGraph {
             beamWidth?: number;
         }
     ): Promise<ControllerLoopResult> {
-        const maxIterations = options?.maxIterations ?? 5;
-        const convergenceThreshold = options?.convergenceThreshold ?? 0.85;
-        const autoPruneBelow = options?.autoPruneBelow ?? 0.3;
-        const beamWidth = options?.beamWidth ?? 2;
+        return this.batch(async () => {
+            const maxIterations = options?.maxIterations ?? 5;
+            const convergenceThreshold = options?.convergenceThreshold ?? 0.85;
+            const autoPruneBelow = options?.autoPruneBelow ?? 0.3;
+            const beamWidth = options?.beamWidth ?? 2;
 
-        const iterationLog: IterationLog[] = [];
+            const iterationLog: IterationLog[] = [];
 
-        // Step 1: GENERATE — seed the graph with the prompt + initial thoughts
-        const rootId = await this.addNode(prompt);
-        await this.updateNode(rootId, { score: 0.5, status: "active" });
+            // Step 1: GENERATE — seed the graph with the prompt + initial thoughts
+            const rootId = await this.addNode(prompt);
+            await this.updateNode(rootId, { score: 0.5, status: "active" });
 
-        for (const thought of thoughts) {
-            const childId = await this.addNode(thought);
-            await this.addEdge(rootId, childId, "branch");
-            await this.updateNode(childId, { score: 0.5, status: "active" });
-        }
-
-        let converged = false;
-        let iteration = 0;
-
-        // Step 2-6: Iterate until convergence or budget exhausted
-        while (iteration < maxIterations && !converged) {
-            iteration++;
-
-            // --- EVALUATE: score all active leaf nodes ---
-            const activeLeaves = this.getActiveLeaves();
-            let scored = 0;
-            let pruned = 0;
-            let branched = 0;
-            let reflected = 0;
-
-            for (const leaf of activeLeaves) {
-                // Auto-score based on thought quality heuristics:
-                const depth = this.getNodeDepth(leaf.id);
-                const lengthScore = Math.min(leaf.thought.length / 400, 1.0); // 400 chars for full length bonus
-                const depthBonus = Math.min(depth * 0.1, 0.3); // Increased depth importance
-                const specificity = this.estimateSpecificity(leaf.thought);
-
-                // Base score increased to 0.2 to prevent stagnation
-                const autoScore = Math.min(
-                    Math.round((0.2 + lengthScore * 0.2 + depthBonus + specificity * 0.4) * 100) / 100,
-                    1.0
-                );
-
-                await this.updateNode(leaf.id, {
-                    score: autoScore,
-                    status: autoScore >= convergenceThreshold ? "validated" : "active",
-                });
-                scored++;
+            for (const thought of thoughts) {
+                const childId = await this.addNode(thought);
+                await this.addEdge(rootId, childId, "branch");
+                await this.updateNode(childId, { score: 0.5, status: "active" });
             }
 
-            // --- PRUNE: remove low-scoring branches ---
-            const lowScorers = Array.from(this.nodes.values())
-                .filter(n => n.status === "active" && n.score < autoPruneBelow && n.score > 0);
+            let converged = false;
+            let iteration = 0;
 
-            for (const weak of lowScorers) {
-                try {
-                    const result = await this.pruneFromNode(weak.id, `Auto-pruned: score ${weak.score} < ${autoPruneBelow}`, {
-                        mode: "soft",
-                        decayFactor: 0.3,
-                        trigger: "auto",
+            // Step 2-6: Iterate until convergence or budget exhausted
+            while (iteration < maxIterations && !converged) {
+                iteration++;
+
+                // --- EVALUATE: score all active leaf nodes ---
+                const activeLeaves = this.getActiveLeaves();
+                let scored = 0;
+                let pruned = 0;
+                let branched = 0;
+                let reflected = 0;
+
+                for (const leaf of activeLeaves) {
+                    // Auto-score based on thought quality heuristics:
+                    const depth = this.getNodeDepth(leaf.id);
+                    const lengthScore = Math.min(leaf.thought.length / 400, 1.0); // 400 chars for full length bonus
+                    const depthBonus = Math.min(depth * 0.1, 0.3); // Increased depth importance
+                    const specificity = this.estimateSpecificity(leaf.thought);
+
+                    // Base score increased to 0.2 to prevent stagnation
+                    const autoScore = Math.min(
+                        Math.round((0.2 + lengthScore * 0.2 + depthBonus + specificity * 0.4) * 100) / 100,
+                        1.0
+                    );
+
+                    await this.updateNode(leaf.id, {
+                        score: autoScore,
+                        status: autoScore >= convergenceThreshold ? "validated" : "active",
                     });
-                    pruned += result.pruned.length;
-                } catch {
-                    // Skip if prune fails (e.g. cascade limit)
+                    scored++;
                 }
-            }
 
-            // --- BRANCH: create alternatives for mid-tier thoughts ---
-            const midTier = Array.from(this.nodes.values())
-                .filter(n => n.status === "active" && n.score >= autoPruneBelow && n.score < convergenceThreshold);
+                // --- PRUNE: remove low-scoring branches ---
+                const lowScorers = Array.from(this.nodes.values())
+                    .filter(n => n.status === "active" && n.score < autoPruneBelow && n.score > 0);
 
-            const branchPrompts = [
-                "Analyze the risks of: ",
-                "Explore technical trade-offs for: ",
-                "Compare alternatives to: ",
-                "Evaluate scalability of: ",
-                "Assess implementation cost for: "
-            ];
-
-            for (const mid of midTier.slice(0, 3)) { // Limit branching to top 3
-                const existingChildren = this.edges.filter(e => e.from === mid.id).length;
-                if (existingChildren < this.limits.maxBranchFactor && this.nodes.size < this.limits.maxNodes - 5) {
+                for (const weak of lowScorers) {
                     try {
-                        const promptPrefix = branchPrompts[Math.floor(Math.random() * branchPrompts.length)];
-                        const altId = await this.addNode(`${promptPrefix}${mid.thought.substring(0, 150)}...`);
-                        await this.addEdge(mid.id, altId, "branch");
-                        await this.updateNode(altId, { score: 0.5, status: "active" });
-                        branched++;
+                        const result = await this.pruneFromNode(weak.id, `Auto-pruned: score ${weak.score} < ${autoPruneBelow}`, {
+                            mode: "soft",
+                            decayFactor: 0.3,
+                            trigger: "auto",
+                        });
+                        pruned += result.pruned.length;
                     } catch {
-                        // Skip if limits hit
+                        // Skip if prune fails (e.g. cascade limit)
                     }
                 }
-            }
 
-            // --- REFLECT: critique the best candidates ---
-            const topCandidates = Array.from(this.nodes.values())
-                .filter(n => n.status !== "rejected" && n.score >= 0.5)
-                .sort((a, b) => b.score - a.score)
-                .slice(0, 2);
+                // --- BRANCH: create alternatives for mid-tier thoughts ---
+                const midTier = Array.from(this.nodes.values())
+                    .filter(n => n.status === "active" && n.score >= autoPruneBelow && n.score < convergenceThreshold);
 
-            for (const top of topCandidates) {
-                try {
-                    const confidence: ConfidenceVector = {
-                        factual: Math.min(top.score + 0.1, 1),
-                        logical: Math.min(top.score + 0.05, 1),
-                        relevance: Math.min(top.score + 0.15, 1),
-                        novelty: Math.max(top.score - 0.1, 0),
-                    };
-                    await this.reflectAndRefine(
-                        top.id,
-                        `Iteration ${iteration} auto-reflection: evaluating strength of reasoning.`,
-                        confidence
-                    );
-                    reflected++;
-                } catch {
-                    // Skip if reflection fails
+                const branchPrompts = [
+                    "Analyze the risks of: ",
+                    "Explore technical trade-offs for: ",
+                    "Compare alternatives to: ",
+                    "Evaluate scalability of: ",
+                    "Assess implementation cost for: "
+                ];
+
+                for (const mid of midTier.slice(0, 3)) { // Limit branching to top 3
+                    const existingChildren = this.edges.filter(e => e.from === mid.id).length;
+                    if (existingChildren < this.limits.maxBranchFactor && this.nodes.size < this.limits.maxNodes - 5) {
+                        try {
+                            const promptPrefix = branchPrompts[Math.floor(Math.random() * branchPrompts.length)];
+                            const altId = await this.addNode(`${promptPrefix}${mid.thought.substring(0, 150)}...`);
+                            await this.addEdge(mid.id, altId, "branch");
+                            await this.updateNode(altId, { score: 0.5, status: "active" });
+                            branched++;
+                        } catch {
+                            // Skip if limits hit
+                        }
+                    }
+                }
+
+                // --- REFLECT: critique the best candidates ---
+                const topCandidates = Array.from(this.nodes.values())
+                    .filter(n => n.status !== "rejected" && n.score >= 0.5)
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 2);
+
+                for (const top of topCandidates) {
+                    try {
+                        const confidence: ConfidenceVector = {
+                            factual: Math.min(top.score + 0.1, 1),
+                            logical: Math.min(top.score + 0.05, 1),
+                            relevance: Math.min(top.score + 0.15, 1),
+                            novelty: Math.max(top.score - 0.1, 0),
+                        };
+                        await this.reflectAndRefine(
+                            top.id,
+                            `Iteration ${iteration} auto-reflection: evaluating strength of reasoning.`,
+                            confidence
+                        );
+                        reflected++;
+                    } catch {
+                        // Skip if reflection fails
+                    }
+                }
+
+                // --- CONVERGE CHECK ---
+                const winningPath = this.findWinningPath({ beamWidth, scoreThreshold: autoPruneBelow });
+                const avgPathScore = winningPath.path.length > 0
+                    ? winningPath.totalScore / winningPath.path.length
+                    : 0;
+
+                iterationLog.push({
+                    iteration,
+                    nodesScored: scored,
+                    nodesPruned: pruned,
+                    nodesBranched: branched,
+                    nodesReflected: reflected,
+                    totalNodes: this.nodes.size,
+                    bestPathScore: Math.round(avgPathScore * 100) / 100,
+                    converged: avgPathScore >= convergenceThreshold,
+                });
+
+                if (avgPathScore >= convergenceThreshold) {
+                    converged = true;
                 }
             }
 
-            // --- CONVERGE CHECK ---
-            const winningPath = this.findWinningPath({ beamWidth, scoreThreshold: autoPruneBelow });
-            const avgPathScore = winningPath.path.length > 0
-                ? winningPath.totalScore / winningPath.path.length
-                : 0;
+            // Final convergence
+            const finalPath = this.findWinningPath({ beamWidth, scoreThreshold: 0 });
+            const trace = this.exportReasoningTrace();
+            const metrics = this.getMetrics();
 
-            iterationLog.push({
-                iteration,
-                nodesScored: scored,
-                nodesPruned: pruned,
-                nodesBranched: branched,
-                nodesReflected: reflected,
-                totalNodes: this.nodes.size,
-                bestPathScore: Math.round(avgPathScore * 100) / 100,
-                converged: avgPathScore >= convergenceThreshold,
-            });
+            this.stateVersion++;
+            this.isDirty = true;
 
-            if (avgPathScore >= convergenceThreshold) {
-                converged = true;
-            }
-        }
-
-        // Final convergence
-        const finalPath = this.findWinningPath({ beamWidth, scoreThreshold: 0 });
-        const trace = this.exportReasoningTrace();
-        const metrics = this.getMetrics();
-
-        this.stateVersion++;
-        this.save();
-
-        return {
-            converged,
-            iterations: iteration,
-            winningPath: {
-                pathIds: finalPath.pathIds,
-                totalScore: finalPath.totalScore,
-                conclusion: this.synthesizeWinningPath(finalPath.path),
-            },
-            trace,
-            metrics,
-            iterationLog,
-        };
+            return {
+                converged,
+                iterations: iteration,
+                winningPath: {
+                    pathIds: finalPath.pathIds,
+                    totalScore: finalPath.totalScore,
+                    conclusion: this.synthesizeWinningPath(finalPath.path),
+                },
+                trace,
+                metrics,
+                iterationLog,
+            };
+        });
     }
 
     /**

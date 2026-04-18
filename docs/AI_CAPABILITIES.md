@@ -36,6 +36,12 @@ Thought-Graph is a **state management engine for non-linear reasoning**. It does
 ### 6. Export and Recovery
 - **Snapshotting:** You can export the entire graph state (`export_snapshot`) and restore it later (`restore_snapshot`).
 - **Reasoning Traces:** You can export the winning path in a Long CoT format (`export_reasoning_trace`).
+- **Knowledge Graph Bridge:** You can export a reasoning path as entities and relations (`export_proven_memory`) or commit them directly to the permanent `@mcp:memory` server (`commit_to_memory`).
+
+### 7. Professional Reporting (NEW v4.4.0)
+- **Gap Analysis:** Using `generate_gap_report`, you can transform your winning reasoning path into a professional SOC 2 Gap Analysis report.
+- **Multi-Format:** Supports both **Markdown** for internal review and high-quality **PDF** for client delivery.
+- **Branding:** Automatically injects centralized brand constants (colors, fonts) into the generated reports.
 
 ---
 

@@ -1,0 +1,820 @@
+{
+  "nodes": [
+    {
+      "id": "node_eb98bbf4_1",
+      "thought": "Thought 0",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.449Z",
+      "updatedAt": "2026-04-18T11:48:05.449Z"
+    },
+    {
+      "id": "node_eb98bbf4_2",
+      "thought": "Thought 1",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.460Z",
+      "updatedAt": "2026-04-18T11:48:05.460Z"
+    },
+    {
+      "id": "node_eb98bbf4_3",
+      "thought": "Thought 2",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.470Z",
+      "updatedAt": "2026-04-18T11:48:05.470Z"
+    },
+    {
+      "id": "node_eb98bbf4_4",
+      "thought": "Thought 3",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.478Z",
+      "updatedAt": "2026-04-18T11:48:05.478Z"
+    },
+    {
+      "id": "node_eb98bbf4_5",
+      "thought": "Thought 4",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.487Z",
+      "updatedAt": "2026-04-18T11:48:05.487Z"
+    },
+    {
+      "id": "node_eb98bbf4_6",
+      "thought": "Thought 5",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.496Z",
+      "updatedAt": "2026-04-18T11:48:05.496Z"
+    },
+    {
+      "id": "node_eb98bbf4_7",
+      "thought": "Thought 6",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.505Z",
+      "updatedAt": "2026-04-18T11:48:05.505Z"
+    },
+    {
+      "id": "node_eb98bbf4_8",
+      "thought": "Thought 7",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.515Z",
+      "updatedAt": "2026-04-18T11:48:05.515Z"
+    },
+    {
+      "id": "node_eb98bbf4_9",
+      "thought": "Thought 8",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.525Z",
+      "updatedAt": "2026-04-18T11:48:05.525Z"
+    },
+    {
+      "id": "node_eb98bbf4_10",
+      "thought": "Thought 9",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.534Z",
+      "updatedAt": "2026-04-18T11:48:05.534Z"
+    },
+    {
+      "id": "node_eb98bbf4_11",
+      "thought": "Thought 10",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.544Z",
+      "updatedAt": "2026-04-18T11:48:05.544Z"
+    },
+    {
+      "id": "node_eb98bbf4_12",
+      "thought": "Thought 11",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.552Z",
+      "updatedAt": "2026-04-18T11:48:05.552Z"
+    },
+    {
+      "id": "node_eb98bbf4_13",
+      "thought": "Thought 12",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.562Z",
+      "updatedAt": "2026-04-18T11:48:05.562Z"
+    },
+    {
+      "id": "node_eb98bbf4_14",
+      "thought": "Thought 13",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.571Z",
+      "updatedAt": "2026-04-18T11:48:05.571Z"
+    },
+    {
+      "id": "node_eb98bbf4_15",
+      "thought": "Thought 14",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.579Z",
+      "updatedAt": "2026-04-18T11:48:05.579Z"
+    },
+    {
+      "id": "node_eb98bbf4_16",
+      "thought": "Thought 15",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.587Z",
+      "updatedAt": "2026-04-18T11:48:05.587Z"
+    },
+    {
+      "id": "node_eb98bbf4_17",
+      "thought": "Thought 16",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.595Z",
+      "updatedAt": "2026-04-18T11:48:05.595Z"
+    },
+    {
+      "id": "node_eb98bbf4_18",
+      "thought": "Thought 17",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.604Z",
+      "updatedAt": "2026-04-18T11:48:05.604Z"
+    },
+    {
+      "id": "node_eb98bbf4_19",
+      "thought": "Thought 18",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.611Z",
+      "updatedAt": "2026-04-18T11:48:05.611Z"
+    },
+    {
+      "id": "node_eb98bbf4_20",
+      "thought": "Thought 19",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.623Z",
+      "updatedAt": "2026-04-18T11:48:05.623Z"
+    },
+    {
+      "id": "node_eb98bbf4_21",
+      "thought": "Thought 20",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.632Z",
+      "updatedAt": "2026-04-18T11:48:05.632Z"
+    },
+    {
+      "id": "node_eb98bbf4_22",
+      "thought": "Thought 21",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.642Z",
+      "updatedAt": "2026-04-18T11:48:05.642Z"
+    },
+    {
+      "id": "node_eb98bbf4_23",
+      "thought": "Thought 22",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.653Z",
+      "updatedAt": "2026-04-18T11:48:05.653Z"
+    },
+    {
+      "id": "node_eb98bbf4_24",
+      "thought": "Thought 23",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.661Z",
+      "updatedAt": "2026-04-18T11:48:05.661Z"
+    },
+    {
+      "id": "node_eb98bbf4_25",
+      "thought": "Thought 24",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.670Z",
+      "updatedAt": "2026-04-18T11:48:05.670Z"
+    },
+    {
+      "id": "node_eb98bbf4_26",
+      "thought": "Thought 25",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.680Z",
+      "updatedAt": "2026-04-18T11:48:05.680Z"
+    },
+    {
+      "id": "node_eb98bbf4_27",
+      "thought": "Thought 26",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.689Z",
+      "updatedAt": "2026-04-18T11:48:05.689Z"
+    },
+    {
+      "id": "node_eb98bbf4_28",
+      "thought": "Thought 27",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.699Z",
+      "updatedAt": "2026-04-18T11:48:05.699Z"
+    },
+    {
+      "id": "node_eb98bbf4_29",
+      "thought": "Thought 28",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.707Z",
+      "updatedAt": "2026-04-18T11:48:05.707Z"
+    },
+    {
+      "id": "node_eb98bbf4_30",
+      "thought": "Thought 29",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.717Z",
+      "updatedAt": "2026-04-18T11:48:05.717Z"
+    },
+    {
+      "id": "node_eb98bbf4_31",
+      "thought": "Thought 30",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.724Z",
+      "updatedAt": "2026-04-18T11:48:05.724Z"
+    },
+    {
+      "id": "node_eb98bbf4_32",
+      "thought": "Thought 31",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.733Z",
+      "updatedAt": "2026-04-18T11:48:05.733Z"
+    },
+    {
+      "id": "node_eb98bbf4_33",
+      "thought": "Thought 32",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.741Z",
+      "updatedAt": "2026-04-18T11:48:05.741Z"
+    },
+    {
+      "id": "node_eb98bbf4_34",
+      "thought": "Thought 33",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.752Z",
+      "updatedAt": "2026-04-18T11:48:05.752Z"
+    },
+    {
+      "id": "node_eb98bbf4_35",
+      "thought": "Thought 34",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.761Z",
+      "updatedAt": "2026-04-18T11:48:05.761Z"
+    },
+    {
+      "id": "node_eb98bbf4_36",
+      "thought": "Thought 35",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.770Z",
+      "updatedAt": "2026-04-18T11:48:05.770Z"
+    },
+    {
+      "id": "node_eb98bbf4_37",
+      "thought": "Thought 36",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.779Z",
+      "updatedAt": "2026-04-18T11:48:05.779Z"
+    },
+    {
+      "id": "node_eb98bbf4_38",
+      "thought": "Thought 37",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.787Z",
+      "updatedAt": "2026-04-18T11:48:05.787Z"
+    },
+    {
+      "id": "node_eb98bbf4_39",
+      "thought": "Thought 38",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.796Z",
+      "updatedAt": "2026-04-18T11:48:05.796Z"
+    },
+    {
+      "id": "node_eb98bbf4_40",
+      "thought": "Thought 39",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.805Z",
+      "updatedAt": "2026-04-18T11:48:05.805Z"
+    },
+    {
+      "id": "node_eb98bbf4_41",
+      "thought": "Thought 40",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.816Z",
+      "updatedAt": "2026-04-18T11:48:05.816Z"
+    },
+    {
+      "id": "node_eb98bbf4_42",
+      "thought": "Thought 41",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.825Z",
+      "updatedAt": "2026-04-18T11:48:05.825Z"
+    },
+    {
+      "id": "node_eb98bbf4_43",
+      "thought": "Thought 42",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.834Z",
+      "updatedAt": "2026-04-18T11:48:05.834Z"
+    },
+    {
+      "id": "node_eb98bbf4_44",
+      "thought": "Thought 43",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.843Z",
+      "updatedAt": "2026-04-18T11:48:05.843Z"
+    },
+    {
+      "id": "node_eb98bbf4_45",
+      "thought": "Thought 44",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.853Z",
+      "updatedAt": "2026-04-18T11:48:05.853Z"
+    },
+    {
+      "id": "node_eb98bbf4_46",
+      "thought": "Thought 45",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.861Z",
+      "updatedAt": "2026-04-18T11:48:05.861Z"
+    },
+    {
+      "id": "node_eb98bbf4_47",
+      "thought": "Thought 46",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.870Z",
+      "updatedAt": "2026-04-18T11:48:05.870Z"
+    },
+    {
+      "id": "node_eb98bbf4_48",
+      "thought": "Thought 47",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.878Z",
+      "updatedAt": "2026-04-18T11:48:05.878Z"
+    },
+    {
+      "id": "node_eb98bbf4_49",
+      "thought": "Thought 48",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.886Z",
+      "updatedAt": "2026-04-18T11:48:05.886Z"
+    },
+    {
+      "id": "node_eb98bbf4_50",
+      "thought": "Thought 49",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.894Z",
+      "updatedAt": "2026-04-18T11:48:05.894Z"
+    },
+    {
+      "id": "node_eb98bbf4_51",
+      "thought": "Thought 50",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.903Z",
+      "updatedAt": "2026-04-18T11:48:05.903Z"
+    },
+    {
+      "id": "node_eb98bbf4_52",
+      "thought": "Thought 51",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.912Z",
+      "updatedAt": "2026-04-18T11:48:05.912Z"
+    },
+    {
+      "id": "node_eb98bbf4_53",
+      "thought": "Thought 52",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.922Z",
+      "updatedAt": "2026-04-18T11:48:05.922Z"
+    },
+    {
+      "id": "node_eb98bbf4_54",
+      "thought": "Thought 53",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.931Z",
+      "updatedAt": "2026-04-18T11:48:05.931Z"
+    },
+    {
+      "id": "node_eb98bbf4_55",
+      "thought": "Thought 54",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.940Z",
+      "updatedAt": "2026-04-18T11:48:05.940Z"
+    },
+    {
+      "id": "node_eb98bbf4_56",
+      "thought": "Thought 55",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.950Z",
+      "updatedAt": "2026-04-18T11:48:05.950Z"
+    },
+    {
+      "id": "node_eb98bbf4_57",
+      "thought": "Thought 56",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.962Z",
+      "updatedAt": "2026-04-18T11:48:05.962Z"
+    },
+    {
+      "id": "node_eb98bbf4_58",
+      "thought": "Thought 57",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.971Z",
+      "updatedAt": "2026-04-18T11:48:05.971Z"
+    },
+    {
+      "id": "node_eb98bbf4_59",
+      "thought": "Thought 58",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.980Z",
+      "updatedAt": "2026-04-18T11:48:05.980Z"
+    },
+    {
+      "id": "node_eb98bbf4_60",
+      "thought": "Thought 59",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:05.990Z",
+      "updatedAt": "2026-04-18T11:48:05.990Z"
+    },
+    {
+      "id": "node_eb98bbf4_61",
+      "thought": "Thought 60",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.000Z",
+      "updatedAt": "2026-04-18T11:48:06.000Z"
+    },
+    {
+      "id": "node_eb98bbf4_62",
+      "thought": "Thought 61",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.009Z",
+      "updatedAt": "2026-04-18T11:48:06.009Z"
+    },
+    {
+      "id": "node_eb98bbf4_63",
+      "thought": "Thought 62",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.018Z",
+      "updatedAt": "2026-04-18T11:48:06.018Z"
+    },
+    {
+      "id": "node_eb98bbf4_64",
+      "thought": "Thought 63",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.027Z",
+      "updatedAt": "2026-04-18T11:48:06.027Z"
+    },
+    {
+      "id": "node_eb98bbf4_65",
+      "thought": "Thought 64",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.036Z",
+      "updatedAt": "2026-04-18T11:48:06.036Z"
+    },
+    {
+      "id": "node_eb98bbf4_66",
+      "thought": "Thought 65",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.045Z",
+      "updatedAt": "2026-04-18T11:48:06.045Z"
+    },
+    {
+      "id": "node_eb98bbf4_67",
+      "thought": "Thought 66",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.056Z",
+      "updatedAt": "2026-04-18T11:48:06.056Z"
+    },
+    {
+      "id": "node_eb98bbf4_68",
+      "thought": "Thought 67",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.066Z",
+      "updatedAt": "2026-04-18T11:48:06.066Z"
+    },
+    {
+      "id": "node_eb98bbf4_69",
+      "thought": "Thought 68",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.074Z",
+      "updatedAt": "2026-04-18T11:48:06.074Z"
+    },
+    {
+      "id": "node_eb98bbf4_70",
+      "thought": "Thought 69",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.083Z",
+      "updatedAt": "2026-04-18T11:48:06.083Z"
+    },
+    {
+      "id": "node_eb98bbf4_71",
+      "thought": "Thought 70",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.090Z",
+      "updatedAt": "2026-04-18T11:48:06.090Z"
+    },
+    {
+      "id": "node_eb98bbf4_72",
+      "thought": "Thought 71",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.099Z",
+      "updatedAt": "2026-04-18T11:48:06.099Z"
+    },
+    {
+      "id": "node_eb98bbf4_73",
+      "thought": "Thought 72",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.105Z",
+      "updatedAt": "2026-04-18T11:48:06.105Z"
+    },
+    {
+      "id": "node_eb98bbf4_74",
+      "thought": "Thought 73",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.112Z",
+      "updatedAt": "2026-04-18T11:48:06.112Z"
+    },
+    {
+      "id": "node_eb98bbf4_75",
+      "thought": "Thought 74",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.120Z",
+      "updatedAt": "2026-04-18T11:48:06.120Z"
+    },
+    {
+      "id": "node_eb98bbf4_76",
+      "thought": "Thought 75",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.129Z",
+      "updatedAt": "2026-04-18T11:48:06.129Z"
+    },
+    {
+      "id": "node_eb98bbf4_77",
+      "thought": "Thought 76",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.137Z",
+      "updatedAt": "2026-04-18T11:48:06.137Z"
+    },
+    {
+      "id": "node_eb98bbf4_78",
+      "thought": "Thought 77",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.144Z",
+      "updatedAt": "2026-04-18T11:48:06.144Z"
+    },
+    {
+      "id": "node_eb98bbf4_79",
+      "thought": "Thought 78",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.154Z",
+      "updatedAt": "2026-04-18T11:48:06.154Z"
+    },
+    {
+      "id": "node_eb98bbf4_80",
+      "thought": "Thought 79",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.163Z",
+      "updatedAt": "2026-04-18T11:48:06.163Z"
+    },
+    {
+      "id": "node_eb98bbf4_81",
+      "thought": "Thought 80",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.172Z",
+      "updatedAt": "2026-04-18T11:48:06.172Z"
+    },
+    {
+      "id": "node_eb98bbf4_82",
+      "thought": "Thought 81",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.180Z",
+      "updatedAt": "2026-04-18T11:48:06.180Z"
+    },
+    {
+      "id": "node_eb98bbf4_83",
+      "thought": "Thought 82",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.187Z",
+      "updatedAt": "2026-04-18T11:48:06.187Z"
+    },
+    {
+      "id": "node_eb98bbf4_84",
+      "thought": "Thought 83",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.195Z",
+      "updatedAt": "2026-04-18T11:48:06.195Z"
+    },
+    {
+      "id": "node_eb98bbf4_85",
+      "thought": "Thought 84",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.204Z",
+      "updatedAt": "2026-04-18T11:48:06.204Z"
+    },
+    {
+      "id": "node_eb98bbf4_86",
+      "thought": "Thought 85",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.211Z",
+      "updatedAt": "2026-04-18T11:48:06.211Z"
+    },
+    {
+      "id": "node_eb98bbf4_87",
+      "thought": "Thought 86",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.219Z",
+      "updatedAt": "2026-04-18T11:48:06.219Z"
+    },
+    {
+      "id": "node_eb98bbf4_88",
+      "thought": "Thought 87",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.228Z",
+      "updatedAt": "2026-04-18T11:48:06.228Z"
+    },
+    {
+      "id": "node_eb98bbf4_89",
+      "thought": "Thought 88",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.237Z",
+      "updatedAt": "2026-04-18T11:48:06.237Z"
+    },
+    {
+      "id": "node_eb98bbf4_90",
+      "thought": "Thought 89",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.243Z",
+      "updatedAt": "2026-04-18T11:48:06.243Z"
+    },
+    {
+      "id": "node_eb98bbf4_91",
+      "thought": "Thought 90",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.251Z",
+      "updatedAt": "2026-04-18T11:48:06.251Z"
+    },
+    {
+      "id": "node_eb98bbf4_92",
+      "thought": "Thought 91",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.258Z",
+      "updatedAt": "2026-04-18T11:48:06.258Z"
+    },
+    {
+      "id": "node_eb98bbf4_93",
+      "thought": "Thought 92",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.266Z",
+      "updatedAt": "2026-04-18T11:48:06.266Z"
+    },
+    {
+      "id": "node_eb98bbf4_94",
+      "thought": "Thought 93",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.272Z",
+      "updatedAt": "2026-04-18T11:48:06.272Z"
+    },
+    {
+      "id": "node_eb98bbf4_95",
+      "thought": "Thought 94",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.278Z",
+      "updatedAt": "2026-04-18T11:48:06.278Z"
+    },
+    {
+      "id": "node_eb98bbf4_96",
+      "thought": "Thought 95",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.285Z",
+      "updatedAt": "2026-04-18T11:48:06.285Z"
+    },
+    {
+      "id": "node_eb98bbf4_97",
+      "thought": "Thought 96",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.291Z",
+      "updatedAt": "2026-04-18T11:48:06.291Z"
+    },
+    {
+      "id": "node_eb98bbf4_98",
+      "thought": "Thought 97",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.298Z",
+      "updatedAt": "2026-04-18T11:48:06.298Z"
+    },
+    {
+      "id": "node_eb98bbf4_99",
+      "thought": "Thought 98",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.304Z",
+      "updatedAt": "2026-04-18T11:48:06.304Z"
+    },
+    {
+      "id": "node_eb98bbf4_100",
+      "thought": "Thought 99",
+      "status": "active",
+      "score": 0.5,
+      "createdAt": "2026-04-18T11:48:06.309Z",
+      "updatedAt": "2026-04-18T11:48:06.309Z"
+    }
+  ],
+  "edges": [],
+  "nodeCounter": 100,
+  "limits": {
+    "maxNodes": 1000,
+    "maxBranchFactor": 5,
+    "maxDepth": 30,
+    "maxThoughtLength": 5000,
+    "maxAggregationInputs": 10,
+    "maxPruneCascade": 100
+  },
+  "timestamp": "2026-04-18T11:48:06.312Z",
+  "meta": {
+    "nodeCount": 100,
+    "edgeCount": 0,
+    "lastModified": "2026-04-18T11:48:06.312Z"
+  }
+}

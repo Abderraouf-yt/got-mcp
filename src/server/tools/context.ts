@@ -16,10 +16,10 @@ export function registerContextTools(server: McpServer, defaultContextStore: Con
             }),
             annotations: { destructiveHint: true },
             outputSchema: z.object({
-                key: z.string(),
-                source: z.string(),
-                totalEntries: z.number()
-            })
+                key: z.string().describe("The key that was set"),
+                source: z.string().describe("The provenance source assigned to this value"),
+                totalEntries: z.number().describe("The current total number of entries in the context store")
+            }).describe("Confirmation of the context update")
         },
         async ({ key, value, source, sessionId }) => {
             try {
@@ -59,7 +59,12 @@ export function registerContextTools(server: McpServer, defaultContextStore: Con
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
             }),
             annotations: { destructiveHint: true },
-            outputSchema: z.object({}).passthrough()
+            outputSchema: z.object({
+                key: z.string().describe("The requested context key"),
+                value: z.any().describe("The retrieved value"),
+                source: z.string().describe("The provenance source of the value"),
+                timestamp: z.string().describe("ISO 8601 timestamp of when the value was last set")
+            }).describe("The retrieved context entry with provenance")
         },
         async ({ key, sessionId }) => {
             const contextStore = sessionId ? getContextInstance(sessionId) : defaultContextStore;
@@ -82,7 +87,14 @@ export function registerContextTools(server: McpServer, defaultContextStore: Con
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
             }),
             annotations: { readOnlyHint: true },
-            outputSchema: z.object({}).passthrough()
+            outputSchema: z.object({
+                entries: z.array(z.object({
+                    key: z.string().describe("Context key"),
+                    source: z.string().describe("Source of the value"),
+                    timestamp: z.string().describe("Last updated timestamp")
+                })).describe("List of available context entries"),
+                count: z.number().describe("Total number of keys in the store")
+            }).describe("List of all available keys in the context store")
         },
         async ({ sessionId }) => {
             const contextStore = sessionId ? getContextInstance(sessionId) : defaultContextStore;

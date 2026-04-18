@@ -4,6 +4,7 @@ import { ThoughtGraph, getGraphInstance } from "../../graph/index.js";
 import type { ConfidenceVector, ThoughtNode } from "../../types.js";
 import { logger } from "../logger.js";
 import { generateHeuristicPerspectives } from "./perspectives.js";
+import { ThoughtNodeSchema, ControllerLoopResultSchema, ConfidenceVectorSchema } from "./schemas.js";
 
 /**
  * High-signal security keys for recursive traversal.
@@ -88,12 +89,7 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
             inputSchema: z.object({
                 nodeId: z.string().min(1).describe("Node to reflect on"),
                 critique: z.string().min(1).max(5000).describe("Your critique of this thought"),
-                confidence: z.object({
-                    factual: z.number().min(0).max(1).describe("Grounded in verifiable facts (0-1)"),
-                    logical: z.number().min(0).max(1).describe("Reasoning chain is valid (0-1)"),
-                    relevance: z.number().min(0).max(1).describe("Addresses the problem directly (0-1)"),
-                    novelty: z.number().min(0).max(1).describe("Adds new information vs restating (0-1)"),
-                }).describe("Multi-dimensional confidence assessment"),
+                confidence: ConfidenceVectorSchema.describe("Multi-dimensional confidence assessment"),
                 refinedThought: z.string().max(5000).optional()
                     .describe("If critique reveals a flaw, provide the improved version to auto-branch"),
                 authorId: z.string().optional().describe("Which sub-agent explicitly evaluated this thought"),
@@ -104,12 +100,12 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
             }),
             annotations: { destructiveHint: true },
             outputSchema: z.object({
-                nodeId: z.string(),
-                critiqueId: z.string(),
-                branchId: z.string().nullable(),
-                compositeScore: z.number(),
-                confidence: z.object({}).passthrough()
-            })
+                nodeId: z.string().describe("The ID of the original node being reflected upon"),
+                critiqueId: z.string().describe("The ID of the newly created critique node"),
+                branchId: z.string().nullable().describe("The ID of the refined branch node, if auto-branched"),
+                compositeScore: z.number().describe("The computed weighted confidence score"),
+                confidence: ConfidenceVectorSchema.describe("The multi-axis confidence breakdown")
+            }).describe("Result of self-reflection and refinement")
         },
         async ({ nodeId, critique, confidence, refinedThought, authorId, agentTarget, executionState, dependencies, sessionId }) => {
             try {
@@ -168,7 +164,7 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
             }),
             annotations: { destructiveHint: true },
-            outputSchema: z.object({}).passthrough()
+            outputSchema: ControllerLoopResultSchema
         },
         async ({ prompt, thoughts, autoSeed, maxIterations, convergenceThreshold, autoPruneBelow, beamWidth, sessionId }) => {
             try {
@@ -219,7 +215,10 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
             }),
             annotations: { readOnlyHint: true },
-            outputSchema: z.object({}).passthrough()
+            outputSchema: z.object({
+                contextNodes: z.array(ThoughtNodeSchema).describe("List of thought nodes in the lineage"),
+                count: z.number().describe("Total number of context nodes returned")
+            }).describe("Filtered context lineage for a specific thought")
         },
         async ({ nodeId, ignorePruned, sessionId }) => {
             try {
@@ -248,7 +247,11 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
             }),
             annotations: { readOnlyHint: true },
-            outputSchema: z.object({}).passthrough()
+            outputSchema: z.object({
+                nodes: z.array(ThoughtNodeSchema).describe("List of nodes matching the query filters"),
+                count: z.number().describe("Total matches found"),
+                filters: z.record(z.any()).describe("Active filters applied to the query")
+            }).describe("List of nodes discovered via orchestration filters")
         },
         async ({ executionState, agentTarget, status, authorId, sessionId }) => {
             try {
@@ -256,7 +259,11 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
                 const results = graph.queryNodes({ executionState, agentTarget, status, authorId });
                 return {
                     content: [{ type: "text" as const, text: `Found ${results.length} nodes matching the query.` }],
-                    structuredContent: { nodes: results, count: results.length },
+                    structuredContent: { 
+                        nodes: results, 
+                        count: results.length,
+                        filters: { executionState, agentTarget, status, authorId }
+                    },
                 };
             } catch (err) {
                 logger.error(`Error in query_nodes: ${err}`);
@@ -274,7 +281,12 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
                 provider: z.enum(["AWS", "Azure"]).optional().describe("Explicit cloud provider override"),
             }),
-            annotations: { readOnlyHint: false, destructiveHint: false }
+            annotations: { readOnlyHint: false, destructiveHint: false },
+            outputSchema: z.object({
+                count: z.number().describe("Number of evidence nodes created"),
+                ids: z.array(z.string()).describe("IDs of the newly created evidence nodes"),
+                provider: z.string().describe("Detected or specified cloud provider")
+            }).describe("Result of the infrastructure evidence ingestion")
         },
         async ({ rawJson, sessionId, provider }) => {
             try {

@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { ThoughtGraph, getGraphInstance } from "../../graph/index.js";
 import { logger } from "../logger.js";
+import { ThoughtNodeSchema, ThoughtEdgeSchema, WinningPathSchema, GraphStateSchema } from "./schemas.js";
 
 export function registerGotTools(server: McpServer, defaultGraph: ThoughtGraph, notifyUpdate: (sessionId?: string) => void) {
     server.registerTool(
@@ -12,13 +13,7 @@ export function registerGotTools(server: McpServer, defaultGraph: ThoughtGraph, 
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
             }),
             annotations: { readOnlyHint: true },
-            outputSchema: z.object({
-                nodes: z.array(z.any()),
-                edges: z.array(z.any()),
-                nodeCounter: z.number(),
-                limits: z.any(),
-                timestamp: z.string()
-            })
+            outputSchema: GraphStateSchema
         },
         async ({ sessionId }) => {
             const graph = sessionId ? getGraphInstance(sessionId) : defaultGraph;
@@ -42,13 +37,13 @@ export function registerGotTools(server: McpServer, defaultGraph: ThoughtGraph, 
             }),
             annotations: { destructiveHint: true },
             outputSchema: z.object({
-                newNodeId: z.string(),
-                aggregatedFrom: z.array(z.string()),
-                weightedScore: z.number(),
-                confidence: z.number().nullable(),
-                formula: z.string(),
-                synthesis: z.string()
-            })
+                newNodeId: z.string().describe("The ID of the newly created synthesized node"),
+                aggregatedFrom: z.array(z.string()).describe("List of source node IDs"),
+                weightedScore: z.number().describe("The computed score of the new node"),
+                confidence: z.number().nullable().describe("Aggregation confidence (1 - stddev)"),
+                formula: z.string().describe("The mathematical formula used for aggregation"),
+                synthesis: z.string().describe("The synthesized reasoning content")
+            }).describe("Result of the weighted aggregation")
         },
         async ({ nodeIds, synthesis, weights, sessionId }) => {
             try {
@@ -90,12 +85,12 @@ export function registerGotTools(server: McpServer, defaultGraph: ThoughtGraph, 
             }),
             annotations: { destructiveHint: true },
             outputSchema: z.object({
-                prunedCount: z.number(),
-                prunedIds: z.array(z.string()),
-                mode: z.string(),
-                reason: z.string(),
-                trigger: z.string()
-            })
+                prunedCount: z.number().describe("Number of nodes affected by the prune"),
+                prunedIds: z.array(z.string()).describe("IDs of all pruned nodes"),
+                mode: z.string().describe("Pruning mode used (hard/soft)"),
+                reason: z.string().describe("Rationale for pruning"),
+                trigger: z.string().describe("Source of the prune command (manual/auto)")
+            }).describe("Confirmation of pruned branch")
         },
         async ({ nodeId, reason, mode, decayFactor, trigger, sessionId }) => {
             try {
@@ -131,14 +126,7 @@ export function registerGotTools(server: McpServer, defaultGraph: ThoughtGraph, 
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
             }),
             annotations: { readOnlyHint: true },
-            outputSchema: z.object({
-                pathIds: z.array(z.string()),
-                totalScore: z.number(),
-                pathLength: z.number(),
-                path: z.array(z.any()),
-                allPaths: z.array(z.any()).nullable(),
-                beamWidth: z.number()
-            })
+            outputSchema: WinningPathSchema
         },
         async ({ beamWidth, scoreThreshold, maxPathLength, sessionId }) => {
             try {
@@ -188,9 +176,23 @@ export function registerGotTools(server: McpServer, defaultGraph: ThoughtGraph, 
             }),
             annotations: { readOnlyHint: true },
             outputSchema: z.object({
-                metrics: z.object({}).passthrough(),
-                limits: z.object({}).passthrough()
-            })
+                metrics: z.object({
+                    nodeCount: z.number(),
+                    edgeCount: z.number(),
+                    maxDepth: z.number(),
+                    avgScore: z.number(),
+                    pruneRatio: z.number(),
+                    activeCount: z.number(),
+                    validatedCount: z.number(),
+                    rejectedCount: z.number(),
+                    rootCount: z.number()
+                }).describe("Current graph health and activity metrics"),
+                limits: z.object({
+                    maxNodes: z.number(),
+                    maxDepth: z.number(),
+                    maxBranchFactor: z.number()
+                }).passthrough().describe("Active engine-level governance limits")
+            }).describe("Graph statistics and governance state")
         },
         async ({ sessionId }) => {
             try {
