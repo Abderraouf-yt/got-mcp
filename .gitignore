@@ -54,3 +54,6 @@ visualizer/err.txt
 
 # Scans
 project-deep-scan/
+
+tests/tmp_sync/
+
