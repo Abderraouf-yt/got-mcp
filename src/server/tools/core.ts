@@ -164,8 +164,14 @@ export function registerCoreTools(server: McpServer, defaultGraph: ThoughtGraph,
                     };
                 }
 
+                const computedScore = score !== undefined
+                    ? score
+                    : confidence
+                        ? (confidence.factual + confidence.logical + confidence.relevance + confidence.novelty) / 4
+                        : node.score;
+
                 await graph.updateNode(nodeId, {
-                    score: score !== undefined ? score : node.score,
+                    score: computedScore,
                     status: status || node.status,
                     metadata: {
                         ...(node.metadata || {}),
@@ -180,8 +186,8 @@ export function registerCoreTools(server: McpServer, defaultGraph: ThoughtGraph,
 
                 notifyUpdate(sessionId);
                 return {
-                    content: [{ type: "text" as const, text: `Node ${nodeId} evaluated (score: ${score !== undefined ? score : 'computed'}, status: ${status || 'unchanged'})` }],
-                    structuredContent: { nodeId, score, status }
+                    content: [{ type: "text" as const, text: `Node ${nodeId} evaluated (score: ${computedScore}, status: ${status || 'unchanged'})` }],
+                    structuredContent: { nodeId, score: computedScore, status }
                 };
             } catch (err) {
                 logger.error(`Error in evaluate_thought: ${err}`);

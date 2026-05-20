@@ -16,7 +16,7 @@ export class Persistence {
      * Uses temp file + rename pattern to prevent corruption.
      * Implements SC-002 (< 100ms latency) and SC-004 (< 25% overhead).
      */
-    static async save(filePath: string, state: any): Promise<void> {
+    static async save(filePath: string, state: any): Promise<boolean> {
         const startTime = performance.now();
         const tempPath = `${filePath}.tmp`;
 
@@ -35,6 +35,7 @@ export class Persistence {
             } else {
                 logger.debug(`Graph persisted atomically in ${duration.toFixed(2)}ms`);
             }
+            return true;
         } catch (error) {
             // FR-007: Graceful error logging for persistence failures
             const message = error instanceof Error ? error.message : String(error);
@@ -50,6 +51,7 @@ export class Persistence {
             }
             
             // We don't throw here to ensure the server keeps running (FR-007)
+            return false;
         }
     }
 

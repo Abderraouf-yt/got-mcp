@@ -147,7 +147,7 @@ export class ThoughtGraph {
             return result;
         } finally {
             this.isBatching = wasBatching;
-            if (!wasBatching) {
+            if (!wasBatching && !this.isDirty) {
                 this.isDirty = false;
             }
         }
@@ -170,7 +170,11 @@ export class ThoughtGraph {
         try {
             // Ensure file exists before locking
             if (!fs.existsSync(this.persistencePath)) {
-                await Persistence.save(this.persistencePath, this.getGraph());
+                const initialized = await Persistence.save(this.persistencePath, this.getGraph());
+                if (!initialized) {
+                    this.isDirty = true;
+                    return;
+                }
             }
 
             // Acquire asynchronous IPC OS lock with exponential backoff retries
@@ -219,8 +223,8 @@ export class ThoughtGraph {
             }
 
             // Delegate to Persistence for atomic temp+rename write
-            await Persistence.save(this.persistencePath, this.getGraph());
-            this.isDirty = false;
+            const saved = await Persistence.save(this.persistencePath, this.getGraph());
+            this.isDirty = !saved;
 
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
