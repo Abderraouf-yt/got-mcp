@@ -14,7 +14,7 @@ export type ThoughtStatus = "active" | "validated" | "rejected" | "branching";
 /**
  * Type of relationship between thought nodes.
  */
-export type ThoughtRelation = "refinement" | "contradiction" | "support" | "branch" | "aggregation" | "reflection";
+export type ThoughtRelation = "refinement" | "contradiction" | "support" | "branch" | "aggregation" | "reflection" | "supports" | "branches_to" | "aggregates" | "refines" | "contradicts";
 
 /**
  * A node in the thought graph representing a single unit of reasoning.
@@ -25,6 +25,10 @@ export interface ThoughtNode {
     status: ThoughtStatus;
     score: number;
     confidence?: ConfidenceVector;
+    authorId?: string;
+    agentTarget?: string;
+    executionState?: "queued" | "processing" | "done";
+    dependencies?: string[];
     metadata?: Record<string, unknown>;
     createdAt: string;
     updatedAt: string;
@@ -86,6 +90,9 @@ export interface ThoughtEdge {
 export interface GraphState {
     nodes: ThoughtNode[];
     edges: ThoughtEdge[];
+    nodeCounter: number;
+    limits: GraphLimits;
+    timestamp: string;
     meta: {
         nodeCount: number;
         edgeCount: number;
@@ -110,12 +117,12 @@ export interface GraphLimits {
  * Default governance limits per v3.0 Production Constitution.
  */
 export const DEFAULT_GRAPH_LIMITS: GraphLimits = {
-    maxNodes: 200,
+    maxNodes: 1000,
     maxBranchFactor: 5,
-    maxDepth: 15,
+    maxDepth: 30,
     maxThoughtLength: 5000,
     maxAggregationInputs: 10,
-    maxPruneCascade: 50,
+    maxPruneCascade: 100,
 } as const;
 
 /**
@@ -153,7 +160,7 @@ export interface GraphMetrics {
  */
 export const SERVER_CONFIG = {
     name: "@abderraouf-yt/got-mcp",
-    version: "4.0.0",
+    version: "4.4.0",
     description: "Graph of Thoughts (GoT) MCP Server — bounded, auditable reasoning with self-reflection and shared context",
 } as const;
 
@@ -161,8 +168,8 @@ export const SERVER_CONFIG = {
  * Resource URIs used by the server.
  */
 export const RESOURCE_URIS = {
-    currentGraph: "@abderraouf-yt/got-mcp://current",
-    contextStore: "@abderraouf-yt/got-mcp://context",
+    currentGraph: "thought-graph://current",
+    contextStore: "thought-graph://context",
 } as const;
 
 /**
@@ -193,4 +200,50 @@ export interface ControllerLoopResult {
     trace: ReasoningTrace;
     metrics: GraphMetrics;
     iterationLog: IterationLog[];
+}
+
+/**
+ * Analytical perspective for seeding reasoning.
+ */
+export interface Perspective {
+    lens: string;
+    thought: string;
+    weight: number;
+}
+
+/**
+ * A single gap identified during reasoning.
+ * Mapped from rejected nodes or low-score path branches.
+ */
+export interface GapItem {
+    id: string;
+    title: string;
+    description: string;
+    remediation: string;
+    category: string;
+    severity: "low" | "medium" | "high" | "critical";
+    evidence?: {
+        path: string;
+        attribute?: string;
+        value?: any;
+    }[];
+}
+
+/**
+ * Structured Gap Analysis report.
+ * Can be exported as Markdown or PDF.
+ */
+export interface GapReport {
+    sessionId: string;
+    title: string;
+    executiveSummary: string;
+    readinessScore: number;
+    gaps: GapItem[];
+    winningPathIds: string[];
+    generatedAt: string;
+    metadata: {
+        totalNodes: number;
+        totalGaps: number;
+        methodology: string;
+    };
 }

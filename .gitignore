@@ -21,6 +21,11 @@ Thumbs.db
 # Runtime state (session-scoped graph persistence)
 thought-graph-state*.json
 
+# Internal specs and roadmap (Private "Secret Sauce")
+specs/
+ROADMAP.md
+CHANGELOG.md
+
 # AI tooling internals — not for public repos
 .spec/
 .specify/
@@ -31,6 +36,11 @@ thought-graph-state*.json
 .roomodes
 skills-lock.json
 MCP_CONFIG_README.md
+
+# Business Logic & Private Assets (DO NOT PUBLISH)
+reasoning-niches/
+audits/
+portfolio/
 
 # Editor/IDE
 .vscode/
@@ -44,3 +54,6 @@ visualizer/err.txt
 
 # Scans
 project-deep-scan/
+
+tests/tmp_sync/
+

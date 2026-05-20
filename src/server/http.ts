@@ -58,10 +58,22 @@ export async function startHttpServer(): Promise<net.Server> {
 
     const activeSessions = new Map<string, SSEServerTransport>();
 
-    app.get("/sse", async (req, res) => {
-        const sessionId = `session_${crypto.randomUUID()}`;
+    app.post("/messages", async (req, res) => {
+        const sessionId = req.query.sessionId as string;
+        const transport = activeSessions.get(sessionId);
 
-        const transport = new SSEServerTransport("/messages", res);
+        if (!transport) {
+            res.status(404).send("Session not found");
+            return;
+        }
+
+        await transport.handlePostMessage(req, res);
+    });
+
+    app.get("/sse", async (req, res) => {
+        const sessionId = (req.query.sessionId as string) || `session_${crypto.randomUUID()}`;
+
+        const transport = new SSEServerTransport(`/messages?sessionId=${sessionId}`, res);
         const mcpServer = createServerInstance();
 
         activeSessions.set(sessionId, transport);
@@ -73,16 +85,39 @@ export async function startHttpServer(): Promise<net.Server> {
         await mcpServer.connect(transport);
     });
 
-    app.post("/messages", async (req, res) => {
-        res.status(200).json({ status: "received" });
+    app.get("/api/graph", (req, res) => {
+        const sessionId = (req.query.sessionId as string) || "default";
+        res.json(getGraphInstance(sessionId).getGraph());
     });
 
-    app.get("/api/graph", (req, res) => {
-        res.json(getGraphInstance().getGraph());
+    app.get("/api/graph/stream", (req, res) => {
+        const sessionId = (req.query.sessionId as string) || "default";
+        // Setup SSE headers
+        res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        });
+
+        const graph = getGraphInstance(sessionId);
+
+        // Send the initial state immediately
+        res.write(`data: ${JSON.stringify(graph.getGraph())}\n\n`);
+
+        // Subscribe to real-time mutations
+        const unsubscribe = graph.onUpdate(() => {
+            res.write(`data: ${JSON.stringify(graph.getGraph())}\n\n`);
+        });
+
+        // Cleanup strictly on disconnect to prevent memory leaks
+        req.on("close", () => {
+            unsubscribe();
+        });
     });
 
     app.get("/health", (req, res) => {
-        const graph = getGraphInstance();
+        const sessionId = (req.query.sessionId as string) || "default";
+        const graph = getGraphInstance(sessionId);
         res.json({
             status: "ok",
             name: SERVER_CONFIG.name,
@@ -92,6 +127,7 @@ export async function startHttpServer(): Promise<net.Server> {
             graph: {
                 nodes: graph.size,
                 edges: graph.edgeCount,
+                sessionId,
             },
         });
     });

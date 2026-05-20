@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useCallback, useRef, useState } from 'react';
-import useSWR from 'swr';
 import dagre from 'dagre';
 import {
   ReactFlow,
@@ -21,7 +20,7 @@ import { Network, Zap, Wifi, WifiOff, Radio } from 'lucide-react';
 import './App.css';
 
 // Bridge API endpoint — configurable via env for deployment flexibility
-const BRIDGE_URL = import.meta.env.VITE_BRIDGE_URL || 'http://localhost:3001';
+const BRIDGE_URL = import.meta.env.VITE_BRIDGE_URL || 'http://localhost:3002';
 
 interface ThoughtNodeData {
   id: string;
@@ -141,20 +140,73 @@ function getLayoutedElements(
 }
 
 /**
- * Smart fetcher: tries the live bridge first, falls back to bundled demo state.
- * Enables the visualizer to work both locally (live MCP) and deployed (static demo).
+ * Custom hook for real-time Server-Sent Events (SSE).
+ * Falls back to static demo mode if the bridge is unreachable.
  */
-async function smartFetcher(url: string): Promise<GraphData> {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
-    if (!res.ok) throw new Error('Bridge responded with error');
-    return await res.json();
-  } catch {
-    // Bridge unreachable — load bundled demo state
-    const demoRes = await fetch('/demo-state.json');
-    if (!demoRes.ok) throw new Error('No bridge and no demo state available');
-    return await demoRes.json();
-  }
+function useGraphStream(url: string) {
+  const [data, setData] = useState<GraphData | undefined>(undefined);
+  const [error, setError] = useState<Error | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let isMounted = true;
+
+    async function init() {
+      try {
+        // Quick health check to see if bridge is alive
+        await fetch(`${BRIDGE_URL}/health`, { signal: AbortSignal.timeout(2000) });
+        if (!isMounted) return;
+        setIsDemo(false);
+
+        // Connect to SSE stream
+        eventSource = new EventSource(url);
+        eventSource.onmessage = (event) => {
+          if (!isMounted) return;
+          try {
+            const parsed = JSON.parse(event.data);
+            setData(parsed);
+            setIsLoading(false);
+            setError(null);
+          } catch (e) {
+            console.error("SSE parse error", e);
+          }
+        };
+        eventSource.onerror = (e) => {
+          console.error("SSE connection lost, reconnecting implicit...", e);
+        };
+      } catch (err) {
+        if (!isMounted) return;
+        console.warn("Bridge unreachable, falling back to demo mode");
+        setIsDemo(true);
+        try {
+          const res = await fetch('/demo-state.json');
+          if (res.ok) {
+            const demoData = await res.json();
+            setData(demoData);
+          } else {
+            setError(new Error("No demo state available"));
+          }
+        } catch (e) {
+          setError(e instanceof Error ? e : new Error(String(e)));
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    init();
+
+    return () => {
+      isMounted = false;
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [url]);
+
+  return { data, error, isLoading, isDemo };
 }
 
 const nodeTypes = { thoughtNode: ThoughtNode };
@@ -165,21 +217,8 @@ function GraphCanvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { fitView } = useReactFlow();
   const prevNodeCountRef = useRef(0);
-  const [isDemo, setIsDemo] = useState(false);
 
-  const { data, error, isLoading } = useSWR<GraphData>(`${BRIDGE_URL}/api/graph`, smartFetcher, {
-    refreshInterval: isDemo ? 0 : 2000, // Stop polling in demo mode
-    revalidateOnFocus: false,
-    dedupingInterval: 2000,
-    onSuccess: (data) => {
-      // Detect demo mode: if the demo state has the specific root question
-      const isUsingDemo = data?.nodes?.[0]?.thought?.includes('CRDTs or Operational Transformation');
-      // But only flag as demo if bridge was actually unreachable
-      fetch(`${BRIDGE_URL}/health`, { signal: AbortSignal.timeout(2000) })
-        .then(() => setIsDemo(false))
-        .catch(() => setIsDemo(!!isUsingDemo || true));
-    },
-  });
+  const { data, error, isLoading, isDemo } = useGraphStream(`${BRIDGE_URL}/api/graph/stream`);
 
   const connected = !error && data !== undefined && !isDemo;
   const nodeCount = data?.nodes?.length || 0;

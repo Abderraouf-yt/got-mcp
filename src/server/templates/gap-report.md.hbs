@@ -1,0 +1,43 @@
+﻿# SOC 2 Gap Analysis Report
+**Session ID**: {{sessionId}}
+**Generated At**: {{generatedAt}}
+**Readiness Score**: {{readinessScore}}%
+
+## Executive Summary
+{{executiveSummary}}
+
+---
+
+## Remediation Matrix
+
+| Category | Gap (Identified Issue) | Remediation Recommendation | Severity | Evidence Reference |        
+|----------|----------------------|----------------------------|----------|-------------------|
+{{#each gaps}}
+| {{category}} | {{title}} | {{remediation}} | {{severity}} | {{#each evidence}}{{path}}{{#unless @last}}, {{/unless}}{{/each}} |
+{{/each}}
+
+---
+
+## Detailed Gap Findings
+{{#each gaps}}
+### {{title}} ({{category}})
+**Severity**: {{severity}}
+**Description**: {{description}}
+**Remediation**: {{remediation}}
+
+#### Evidence Lineage
+{{#each evidence}}
+- {{path}}: {{attribute}} = {{value}}
+{{/each}}
+
+---
+{{/each}}
+
+## Methodology
+{{metadata.methodology}}
+
+**Total Nodes Analyzed**: {{metadata.totalNodes}}
+**Total Gaps Identified**: {{metadata.totalGaps}}
+
+---
+*Powered by {{brand.identity.name}} | {{brand.identity.tagline}}*

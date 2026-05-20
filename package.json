@@ -1,6 +1,6 @@
 {
   "name": "@abderraouf-yt/got-mcp",
-  "version": "4.0.1",
+  "version": "4.3.1",
   "description": "Graph of Thoughts (GoT) MCP Server — bounded, auditable reasoning for AI agents",
   "main": "dist/index.js",
   "bin": {
@@ -44,16 +44,25 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
+    "test": "npx tsx --test tests/*.test.ts",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "express": "^4.21.0",
-    "zod": "^4.3.6"
+    "handlebars": "^4.7.8",
+    "marked": "^17.0.4",
+    "pdfmake": "^0.3.6",
+    "proper-lockfile": "^4.1.2",
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.23.2"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
+    "@types/marked": "^5.0.2",
     "@types/node": "^25.5.2",
+    "@types/pdfmake": "^0.3.2",
+    "@types/proper-lockfile": "^4.1.4",
     "typescript": "^5.9.3"
   }
 }
