@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { SERVER_CONFIG, RESOURCE_URIS } from "../types.js";
-import type { ConfidenceVector } from "../types.js";
+import type { ConfidenceVector, ThoughtNode, ThoughtEdge } from "../types.js";
 import { getGraphInstance, ThoughtGraph } from "../graph/index.js";
 import { getContextInstance } from "../context/index.js";
 
@@ -431,7 +431,7 @@ export function createServerInstance(): McpServer {
             },
             annotations: { destructiveHint: true }
         },
-        async ({ snapshot }: { snapshot: { nodes: any[]; edges: any[]; nodeCounter: number } }) => {
+        async ({ snapshot }: { snapshot: { nodes: ThoughtNode[]; edges: ThoughtEdge[]; nodeCounter: number } }) => {
             try {
                 const beforeCount = graph.size;
                 graph.restoreSnapshot(snapshot);
