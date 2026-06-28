@@ -160,7 +160,7 @@ export interface GraphMetrics {
  */
 export const SERVER_CONFIG = {
     name: "@abderraouf-yt/got-mcp",
-    version: "4.4.0",
+    version: "4.4.1",
     description: "Graph of Thoughts (GoT) MCP Server — bounded, auditable reasoning with self-reflection and shared context",
 } as const;
 

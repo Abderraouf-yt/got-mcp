@@ -63,6 +63,13 @@ describe("E2E: propose_thought → evaluate_thought → find_winning_path", () =
 
         // Give the HTTP bridge a moment to start (non-blocking for tests)
         console.error("E2E test client connected to thought-graph MCP server");
+
+        // Reset graph to ensure clean state (handles state file contamination)
+        try {
+            await client.callTool({ name: "reset_graph", arguments: {} });
+        } catch {
+            // If reset_graph tool doesn't exist, the state is already clean
+        }
     });
 
     after(async () => {
@@ -109,7 +116,7 @@ describe("E2E: propose_thought → evaluate_thought → find_winning_path", () =
         const text2 = result2.content.find((c: any) => c.type === "text")?.text || "";
         assert.ok(text2.includes("node_"), `Should return a node ID, got: ${text2}`);
 
-        const nodeId2 = text2.match(/node_\d+/)?.[0];
+        const nodeId2 = text2.match(/node_[a-f0-9]+_\d+/)?.[0] || text2.match(/node_\d+/)?.[0];
         assert.ok(nodeId2, `Should extract node ID from: ${text2}`);
         (globalThis as any).__childNode = nodeId2;
 
@@ -125,7 +132,7 @@ describe("E2E: propose_thought → evaluate_thought → find_winning_path", () =
 
         assert.ok(result3.content);
         const text3 = result3.content.find((c: any) => c.type === "text")?.text || "";
-        const nodeId3 = text3.match(/node_\d+/)?.[0];
+        const nodeId3 = text3.match(/node_[a-f0-9]+_\d+/)?.[0] || text3.match(/node_\d+/)?.[0];
         assert.ok(nodeId3);
         (globalThis as any).__branchNode = nodeId3;
 
