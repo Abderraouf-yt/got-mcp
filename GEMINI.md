@@ -1,19 +1,38 @@
-﻿# GEMINI.md — Thought Graph v4.4.0 (Source of Truth)
+﻿# GEMINI.md — Thought Graph v4.4.1 (Source of Truth)
 
 ## 🚀 Overview
 **Thought Graph** is a 2026-era MCP server implementing the **Graph of Thoughts (GoT)** reasoning pattern (Besta et al., 2023). It enables non-linear, recursive reasoning for AI agents through a DAG structure with branching, aggregation, pruning, and convergence.
 
-**Version:** 4.4.0 | **License:** MIT | **Transport:** Stdio + HTTP Bridge
+**Version:** 4.4.1 | **License:** MIT | **Transport:** Stdio + HTTP Bridge
+
+## 🛡️ Hybrid 2026 Standard
+This project adheres to the **Hybrid 2026 Visualization Standard** for maximum efficiency and accessibility:
+
+1.  **Mermaid Structure (AI-to-AI)**: All architectural and logical flows in documentation (`.md`) MUST use Mermaid diagrams. This ensures AI agents can "see" and "modify" the logic via text.
+2.  **Lean Visualizer (Human-to-AI)**: The actual dashboard uses a **Svelte 5 + Sigma.js v3 (WebGL)** stack to provide humans with fluid, hardware-accelerated insights into complex reasoning chains (100k+ nodes).
 
 ## 🛠 Tech Stack
-| Component | Technology |
-|-----------|-----------|
-| **Server** | TypeScript, Node.js v20+, `@modelcontextprotocol/sdk` ^1.26, Express, Zod 4.3.6, pdfmake, Handlebars, marked |
-| **Visualizer** | React 19, Vite 7, `@xyflow/react`, Dagre, SWR, Lucide Icons |
-| **State** | In-memory DAG with JSON file persistence + `fs.watchFile` cross-process sync |
-| **Transport** | Stdio (IDE agents) + HTTP Bridge :3001 (visualizer) |
+| Component | Technology | Status |
+|-----------|------------|--------|
+| **Server** | TypeScript, Node.js v22+, `@modelcontextprotocol/sdk` ^1.26 | **STABLE** |
+| **Documentation** | **Mermaid.js**, GitHub-Flavored Markdown | **STANDARD** |
+| **Visualizer (Target)** | **Svelte 5 (Runes), Sigma.js v3 (WebGL), CSS Anchor Positioning** | **IN-PROGRESS** |
+| **Visualizer (Legacy)** | React 19, Vite 7, `@xyflow/react`, Dagre, SWR | **DEPRECATED** |
+| **Persistence** | Atomic reactive JSON mirroring with asynchronous save queue (< 100ms) | **STABLE** |
+| **Transport** | Stdio (IDE agents) + HTTP Bridge :3001 (visualizer) | **STABLE** |
 
 ## 🏗 Architecture & Codebase Map
+
+```mermaid
+graph TD
+    A[MCP Client] <--> B[Stdio Transport]
+    A <--> C[SSE/HTTP Bridge]
+    B <--> D[ThoughtGraph Engine]
+    C <--> D
+    D <--> E[(Persistence File)]
+    F[Visualizer App] <--> C
+    F -- "Human Insights" --> G((User))
+```
 
 ```
 src/
@@ -22,32 +41,16 @@ src/
 │   ├── mcp.ts                # Main MCP registration logic
 │   ├── http.ts               # Express REST API + CORS for visualizer
 │   └── tools/                # Specialized tool modules (23 tools total)
-│       ├── core.ts           # Basic lifecycle & graph management
-│       ├── got.ts            # Besta et al. (2023) reasoning primitives
-│       ├── context.ts        # Shared context store & provenance
-│       ├── orchestration.ts  # Swarm tasks & task discovery
-│       ├── perspectives.ts   # System 2 intent upskilling
-│       └── reporter.ts       # Professional PDF/Markdown Gap Reports
 ├── graph/
 │   ├── ThoughtGraph.ts       # Core DAG engine (GoT primitives)
-│   └── index.ts              # Singleton export via getGraphInstance()
-├── brand/                    # NEW v4.5.0: Centralized Brand Identity
-│   ├── config.ts             # BRAND_CONFIG (colors, fonts, metadata)
-│   ├── resolver.ts           # Portable font path resolution + fallbacks
-│   └── index.ts              # Public branding API
+│   └── Persistence.ts        # Atomic asynchronous I/O
 ├── types.ts                  # ThoughtNode, ThoughtEdge, ThoughtRelation, GraphState
 └── resources/                # MCP resource: thought-graph://current
 
-visualizer/                   # React 19 + Vite dashboard (:5173)
-├── src/App.tsx               # Dagre layout, SWR polling, ReactFlow canvas
-├── src/components/           # ThoughtNode custom node component
-└── src/App.css               # Cyber-industrial dark theme
-
-tests/                        # Unit tests (Node.js native test runner)
-docs/assets/                  # Demo screenshots, state JSON, recordings
+visualizer/                   # [MIGRATING to Svelte 5]
+├── src/App.tsx               # Legacy React 19 Entry
+└── src/components/           # Custom XYFlow components
 ```
-
-> **⚠️ Stale references:** The old `tools/handlers.ts` and `tools/definitions.ts` files no longer exist. All tool logic is centralized in `src/server/mcp.ts` using inline Zod schemas.
 
 ## 🧠 MCP Tools (23 total)
 
@@ -94,11 +97,6 @@ docs/assets/                  # Demo screenshots, state JSON, recordings
 |------|-------------|-------------|
 | `generate_gap_report` | **NEW v4.4.0**: Professional SOC 2 Gap Analysis PDFs/Markdown | `readOnlyHint: true` |
 
-### MCP Resources
-| URI | Description |
-|-----|-------------|
-| `thought-graph://current` | Real-time graph state (JSON) |
-
 ### Relation Types
 `refinement` · `contradiction` · `support` · `branch` · `aggregation` · `reflection`
 
@@ -123,25 +121,21 @@ npm run dev                     # Vite dev server (:5173)
 ### Testing
 ```bash
 npm run build                   # Must compile first
-npx tsx --test tests/           # Run unit tests
+npm test                        # Run unit tests via node:test
 ```
-> **Coverage:** 59 tests across 16 suites (100% passing). Tests cover Governance, Aggregation, Pruning, Beam Search, Reflection, Context Firewall, Swarm Orchestration, Snapshots, Memory Export, Controller Loop, Session Isolation, Context Store, Graph Metrics, and Professional Reporting (PDF/MD).
 
 ## 📜 Conventions & Standards
 
 ### MCP Builder Compliance
 - ✅ **Zod schemas** on all tool inputs with `.describe()` annotations
-- ✅ **structuredContent** returned alongside text in every tool response
 - ✅ **Actionable error messages** with specific node IDs and suggestions
-- ✅ **Custom error classes** (ThoughtGraphError, NotFoundError, PersistenceError)
 - ✅ **Singleton state** via `getGraphInstance()` (Stdio + HTTP share same graph)
-- ✅ **Tool annotations** (`readOnlyHint` / `destructiveHint`) — fully implemented on all 23 tools
-- ✅ **outputSchema** — fully implemented for all tools with strict array items
+- ✅ **Tool annotations** (`readOnlyHint` / `destructiveHint`)
+- ✅ **outputSchema** — fully implemented for all tools
 
 ### Coding Standards
 - ES6+, async/await, strict TypeScript (`strict: true`)
-- `camelCase` variables, `PascalCase` classes/components, `kebab-case` CSS/folders
-- Zod for all external input validation
+- **Hybrid 2026**: Mermaid diagrams in `.md`, Svelte 5 for dashboard
 - Cross-process file sync via `fs.watchFile` + atomic temp-file writes
 
 ### Git Strategy
@@ -149,32 +143,17 @@ npx tsx --test tests/           # Run unit tests
 - Commits: Conventional Commits (`type(scope): description`)
 - Default branch: `main`
 
-### UI/UX
-- Dark mode default (cyber-industrial aesthetic)
-- Dagre hierarchical DAG layout
-- SWR polling (2s interval) for live sync
-- Vercel React Best Practices applied
-
-## 🔬 GoT Paper Compliance (Besta et al., 2023)
-
+## 🔭 GoT Compliance (Besta et al., 2023)
 | Primitive | Status | Tool |
 |-----------|--------|------|
 | **Generate** | ✅ v1.0 | `propose_thought` |
 | **Evaluate** | ✅ v1.0 | `evaluate_thought` |
-| **Backtrack** | ✅ v1.0 | `evaluate_thought(status: rejected)` |
 | **Aggregate** | ✅ v3.0 | `aggregate_thoughts` |
 | **Prune** | ✅ v3.0 | `prune_branch` |
 | **Converge** | ✅ v3.0 | `find_winning_path` |
-| **Volume Control** | ✅ v3.0 | Engine governance limits |
-| **Replay** | ✅ v3.0 | `export_snapshot` / `restore_snapshot` |
-| **Self-Reflect** | ✅ v4.0 | `reflect_and_refine` — 4-axis confidence |
-| **Auto-save** | ✅ v4.4.1 | Reactive, atomic asynchronous persistence (< 100ms) |
-| **Context Store** | ✅ v4.0 | `context_set` / `context_get` / `context_list` |
-| **Reasoning Trace** | ✅ v4.0 | `export_reasoning_trace` — Long CoT export |
-| **Controller Loop** | ✅ v4.0 | `run_controller_loop` — autonomous orchestrator |
+| **Self-Reflect** | ✅ v4.0 | `reflect_and_refine` |
+| **Controller Loop** | ✅ v4.0 | `run_controller_loop` |
 
 ## 📁 Config & Environment
-- **MCP Config:** `~/.gemini/antigravity/mcp_config.json` or `~/.gemini/settings.json`
-- **Command:** `node <path>/thought-graph/dist/index.js`
 - **Env:** `THOUGHT_GRAPH_HTTP_PORT` (default: 3001)
 - **State file:** `thought-graph-state.json` (CWD of the server process)
