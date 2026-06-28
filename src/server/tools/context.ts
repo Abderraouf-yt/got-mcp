@@ -58,7 +58,7 @@ export function registerContextTools(server: McpServer, defaultContextStore: Con
                 key: z.string().min(1).describe("Context key to retrieve"),
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
             }),
-            annotations: { destructiveHint: true },
+            annotations: { readOnlyHint: true },
             outputSchema: z.object({
                 key: z.string().describe("The requested context key"),
                 value: z.any().describe("The retrieved value"),

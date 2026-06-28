@@ -30,11 +30,11 @@ export function resolveFontPaths(): FontDescriptors {
   const hasBody = fs.existsSync(bodyPath);
 
   if (!hasHeader) {
-    logger.warn(`Premium header font not found at ${headerPath}. Falling back to Roboto.`);
+    logger.debug(`Premium header font not found at ${headerPath}. Falling back to Roboto.`);
   }
 
   if (!hasBody) {
-    logger.warn(`Premium body font not found at ${bodyPath}. Falling back to Roboto.`);
+    logger.debug(`Premium body font not found at ${bodyPath}. Falling back to Roboto.`);
   }
 
   return {

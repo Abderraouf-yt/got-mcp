@@ -196,7 +196,7 @@ export function registerIoTools(server: McpServer, defaultGraph: ThoughtGraph, n
     server.registerTool(
         "commit_to_memory",
         {
-            description: "Persist a validated GoT reasoning path directly to the permanent @mcp:memory Knowledge Graph. Supports dryRun, deduplication, and chunking.",
+            description: "Prepare a validated GoT reasoning path for commitment to the @mcp:memory Knowledge Graph. Returns the entity/relation payload. Agent must then call create_entities and create_relations on the memory server. Supports dryRun for preview without generating instructions.",
             inputSchema: z.object({
                 nodeId: z.string().optional().describe("The winning leaf node ID to commit. If omitted, uses the best path."),
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),

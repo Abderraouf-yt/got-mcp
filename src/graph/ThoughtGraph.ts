@@ -109,6 +109,20 @@ export class ThoughtGraph {
     }
 
     /**
+     * Clean up persistence resources (file watcher, save queue, listeners).
+     * MUST be called when a ThoughtGraph instance with persistence is no longer needed,
+     * especially in tests, to prevent the Node.js event loop from hanging.
+     */
+    public async close(): Promise<void> {
+        // Drain any in-flight writes before releasing the watcher
+        await this.saveQueue;
+        if (this.persistencePath) {
+            fs.unwatchFile(this.persistencePath);
+        }
+        this.listeners = [];
+    }
+
+    /**
      * Request an auto-save operation.
      * If batching, marks dirty. Otherwise, queues a disk write.
      */
@@ -221,6 +235,12 @@ export class ThoughtGraph {
             // Delegate to Persistence for atomic temp+rename write
             await Persistence.save(this.persistencePath, this.getGraph());
             this.isDirty = false;
+
+            // Broadcast to any attached UI listeners (WebSockets/SSE)
+            // FR-006: Moved after successful disk confirmation
+            for (const listener of this.listeners) {
+                try { listener(); } catch (e) { logger.error("Listener error", e); }
+            }
 
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);

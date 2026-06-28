@@ -281,7 +281,7 @@ export function registerOrchestrationTools(server: McpServer, defaultGraph: Thou
                 sessionId: z.string().optional().describe("Session ID for isolated reasoning paths"),
                 provider: z.enum(["AWS", "Azure"]).optional().describe("Explicit cloud provider override"),
             }),
-            annotations: { readOnlyHint: false, destructiveHint: false },
+            annotations: { readOnlyHint: false, destructiveHint: true },
             outputSchema: z.object({
                 count: z.number().describe("Number of evidence nodes created"),
                 ids: z.array(z.string()).describe("IDs of the newly created evidence nodes"),
