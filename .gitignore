@@ -56,4 +56,9 @@ visualizer/err.txt
 project-deep-scan/
 
 tests/tmp_sync/
+tests/tmp_resilience/
+testsprite_tests/
 
+# AI agent working memory (local per-developer)
+.anthracode/
+.kilo/
