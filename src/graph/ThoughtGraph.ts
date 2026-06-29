@@ -1060,8 +1060,7 @@ export class ThoughtGraph {
             let releaseLock: (() => Promise<void>) | undefined;
             try {
                 releaseLock = await lockfile.lock(this.persistencePath, { retries: { retries: 5 } });
-                const emptyState = JSON.stringify(this.getGraph(), null, 2);
-                fs.writeFileSync(this.persistencePath, emptyState, "utf-8");
+                await Persistence.save(this.persistencePath, this.getGraph());
             } catch (error) {
                 logger.error("Failed to clear disk state:", error);
             } finally {
@@ -1678,21 +1677,56 @@ export class ThoughtGraph {
 const sessionRegistry = new Map<string, ThoughtGraph>();
 
 /**
+ * Sanitize a session ID to prevent path traversal attacks.
+ * Only allows alphanumeric, hyphens, underscores, and dots.
+ * Rejects any path separator, null byte, or ".." sequences.
+ */
+function sanitizeSessionId(sessionId: string): string {
+    // Reject any sessionId containing path traversal patterns or separators
+    if (/\.\./.test(sessionId) || /[/\\]/.test(sessionId) || /\0/.test(sessionId)) {
+        throw new Error(`Invalid sessionId: path traversal attempt detected`);
+    }
+    // Strip any remaining non-alphanumeric characters except ._- 
+    // (defense in depth — the above check should catch everything)
+    return sessionId.replace(/[^a-zA-Z0-9._-]/g, "");
+}
+
+/**
+ * Validate that a resolved path stays within the allowed base directory.
+ * Prevents symlink escapes and path traversal even after sanitization.
+ */
+function containPath(resolvedPath: string, baseDir: string): string {
+    const normalized = path.resolve(resolvedPath);
+    const base = path.resolve(baseDir);
+    if (!normalized.startsWith(base + path.sep) && normalized !== base) {
+        throw new Error(`Path traversal detected: ${normalized} is outside ${base}`);
+    }
+    return normalized;
+}
+
+/**
  * Get a ThoughtGraph instance scoped to a session.
  * Creates a new instance if one doesn't exist for this session.
  * @param sessionId - Unique session identifier (defaults to "default" for backward compat)
+ * @throws {Error} if sessionId contains path traversal characters
  */
 export function getGraphInstance(sessionId: string = "default"): ThoughtGraph {
-    if (!sessionRegistry.has(sessionId)) {
-        const stateDir = process.env.THOUGHT_GRAPH_STATE_DIR || process.cwd();
-        const filename = sessionId === "default"
-            ? "thought-graph-state.json"
-            : `thought-graph-state-${sessionId}.json`;
-        const persistPath = path.join(stateDir, filename);
+    // Sanitize the session ID to prevent path traversal via crafted sessionId
+    const safeSessionId = sessionId === "default" ? sessionId : sanitizeSessionId(sessionId);
 
-        sessionRegistry.set(sessionId, new ThoughtGraph(persistPath));
+    if (!sessionRegistry.has(safeSessionId)) {
+        const stateDir = process.env.THOUGHT_GRAPH_STATE_DIR || process.cwd();
+        const filename = safeSessionId === "default"
+            ? "thought-graph-state.json"
+            : `thought-graph-state-${safeSessionId}.json`;
+        const rawPath = path.join(stateDir, filename);
+
+        // Contain the resolved path within the state directory
+        const persistPath = containPath(rawPath, stateDir);
+
+        sessionRegistry.set(safeSessionId, new ThoughtGraph(persistPath));
     }
-    return sessionRegistry.get(sessionId)!;
+    return sessionRegistry.get(safeSessionId)!;
 }
 
 /**

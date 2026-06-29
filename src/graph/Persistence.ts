@@ -1,8 +1,28 @@
 import fs from "node:fs/promises";
-import { writeFileSync, renameSync, existsSync, readFileSync } from "node:fs";
+import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { logger } from "../server/logger.js";
 import type { GraphState } from "../types.js";
+
+/**
+ * Validates that a file path does not contain path traversal patterns.
+ * This is a defense-in-depth measure — callers are expected to provide
+ * a safe, pre-validated path, but this prevents any accidental escape.
+ * @throws {Error} if the path contains null bytes or directory traversal
+ */
+function validatePath(filePath: string, caller: string): void {
+    // Null bytes are always invalid
+    if (filePath.includes("\0")) {
+        throw new Error(`${caller}: Invalid path (null byte detected)`);
+    }
+    // Reject raw ".." components or path separators that weren't
+    // already handled by the caller's sanitization
+    const normalized = path.resolve(filePath);
+    const relative = path.relative(path.dirname(normalized), normalized);
+    if (relative.startsWith("..")) {
+        throw new Error(`${caller}: Path traversal detected in ${filePath}`);
+    }
+}
 
 /**
  * Handles atomic persistence of the Thought Graph state.
@@ -17,6 +37,7 @@ export class Persistence {
      * Implements SC-002 (< 100ms latency) and SC-004 (< 25% overhead).
      */
     static async save(filePath: string, state: any): Promise<void> {
+        validatePath(filePath, "Persistence.save");
         const startTime = performance.now();
         const tempPath = `${filePath}.tmp`;
 
@@ -58,6 +79,8 @@ export class Persistence {
      * Used during initialization (T005).
      */
     static async load(filePath: string): Promise<any | null> {
+        validatePath(filePath, "Persistence.load");
+
         if (!existsSync(filePath)) {
             return null;
         }
@@ -76,6 +99,8 @@ export class Persistence {
      * Synchronous load for initial bootstrap if needed.
      */
     static loadSync(filePath: string): any | null {
+        validatePath(filePath, "Persistence.loadSync");
+
         if (!existsSync(filePath)) {
             return null;
         }
