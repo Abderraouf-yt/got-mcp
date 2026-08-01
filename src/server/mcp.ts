@@ -389,7 +389,7 @@ export function createServerInstance(): McpServer {
         "export_snapshot",
         {
             description: "Export a full snapshot of the current graph state for replay, recovery, or debugging. Returns all nodes, edges, and counter as a serializable JSON object.",
-Consider re-adding error handling to ensure that any exceptions are caught and handled gracefully.
+            inputSchema: {},
             annotations: { readOnlyHint: true }
         },
         async (_request) => {
