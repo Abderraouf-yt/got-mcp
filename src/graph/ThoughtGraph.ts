@@ -912,18 +912,30 @@ export class ThoughtGraph {
             };
         }
 
-        const steps: ReasoningStep[] = result.path.map((node, index) => {
-            // Find reflection children
-            const reflections = this.edges
-                .filter(e => e.from === node.id && e.relation === "reflection")
-                .map(e => this.nodes.get(e.to)?.thought ?? "")
-                .filter(Boolean);
+        // Pre-compute reflections and branch edges to reduce O(N*E) to O(N+E)
+        const edgeLookup = new Map<string, { reflections: string[]; alternatives: string[] }>();
+        for (const edge of this.edges) {
+            if (edge.relation === "reflection" || edge.relation === "branch") {
+                let lookup = edgeLookup.get(edge.from);
+                if (!lookup) {
+                    lookup = { reflections: [], alternatives: [] };
+                    edgeLookup.set(edge.from, lookup);
+                }
+                const targetThought = this.nodes.get(edge.to)?.thought;
+                if (targetThought) {
+                    if (edge.relation === "reflection") {
+                        lookup.reflections.push(targetThought);
+                    } else if (edge.relation === "branch") {
+                        lookup.alternatives.push(targetThought);
+                    }
+                }
+            }
+        }
 
-            // Find branch siblings (alternative paths)
-            const alternatives = this.edges
-                .filter(e => e.from === node.id && e.relation === "branch")
-                .map(e => this.nodes.get(e.to)?.thought ?? "")
-                .filter(Boolean);
+        const steps: ReasoningStep[] = result.path.map((node, index) => {
+            const lookup = edgeLookup.get(node.id);
+            const reflections = lookup?.reflections ?? [];
+            const alternatives = lookup?.alternatives ?? [];
 
             return {
                 step: index + 1,
