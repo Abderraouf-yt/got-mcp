@@ -7,6 +7,7 @@ import { getGraphInstance } from "../graph/index.js";
 import { createServerInstance } from "./mcp.js";
 
 const PREFERRED_PORT = parseInt(process.env.THOUGHT_GRAPH_HTTP_PORT || '3001', 10);
+const ALLOWED_ORIGIN = process.env.THOUGHT_GRAPH_ALLOWED_ORIGIN || "http://localhost:5173";
 const MAX_PORT_ATTEMPTS = 20;
 
 /**
@@ -47,9 +48,9 @@ export async function startHttpServer(): Promise<net.Server> {
     const port = await findAvailablePort(PREFERRED_PORT);
 
     const app = express();
-    // Minimal localhost-only CORS (no external dependency needed)
+    // Minimal CORS (no external dependency needed)
     app.use((_req, res, next) => {
-        res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+        res.header("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
         res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         res.header("Access-Control-Allow-Headers", "Content-Type");
         next();
